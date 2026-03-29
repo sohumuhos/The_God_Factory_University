@@ -190,6 +190,24 @@ def download_model(model_entry: dict, progress_callback=None) -> tuple[bool, str
         return False, f"Download failed: {e}"
 
 
+def _detect_gpu_flags() -> list[str]:
+    """Return ComfyUI CLI flags based on available GPU/VRAM."""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            return ["--cpu"]
+        vram_mb = torch.cuda.get_device_properties(0).total_mem / (1024 * 1024)
+        if vram_mb < 3072:          # < 3 GB → too small, use CPU
+            return ["--cpu"]
+        if vram_mb < 4096:          # < 4 GB → aggressive offloading
+            return ["--lowvram"]
+        if vram_mb < 6144:          # < 6 GB → moderate offloading
+            return ["--lowvram"]
+        return []                   # ≥ 6 GB → normal
+    except Exception:
+        return ["--cpu"]
+
+
 def launch_server() -> tuple[bool, str]:
     """Start ComfyUI server as a background subprocess."""
     if is_running():
@@ -219,11 +237,15 @@ def launch_server() -> tuple[bool, str]:
         _log_dir.mkdir(parents=True, exist_ok=True)
         _log_path = _log_dir / "comfyui_server.log"
         _log_file = open(_log_path, "w", encoding="utf-8")
+
+        # Detect GPU/VRAM to pick the right ComfyUI flags
+        gpu_flags = _detect_gpu_flags()
+
         subprocess.Popen(
             [sys.executable, str(_COMFYUI_MAIN),
              "--listen", COMFYUI_HOST,
              "--port", str(COMFYUI_PORT),
-             "--preview-method", "none"],
+             "--preview-method", "none"] + gpu_flags,
             cwd=str(_COMFYUI_DIR),
             stdout=_log_file,
             stderr=subprocess.STDOUT,

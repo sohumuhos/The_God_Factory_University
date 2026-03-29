@@ -90,12 +90,19 @@ class ComfyUIProvider(ImageProvider):
     def is_available(self) -> bool:
         if not _COMFYUI_MAIN.exists():
             return False
+        # Check if server is already running
         try:
             req = urllib.request.Request(f"{COMFYUI_URL}/system_stats", method="GET")
             urllib.request.urlopen(req, timeout=3)
             return True
         except Exception:
+            pass
+        # Not running — check if we have torch at all before trying to launch
+        try:
+            import torch  # noqa: F401
+        except ImportError:
             return False
+        return False
 
     def _ensure_running(self) -> bool:
         """Start ComfyUI via the manager (handles dep install + launch)."""
