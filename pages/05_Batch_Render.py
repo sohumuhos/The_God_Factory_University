@@ -335,6 +335,87 @@ vfx_config = {
 }
 save_setting("vfx_config", json.dumps(vfx_config))
 
+# ─── 24/7 Continuous Enrichment ───────────────────────────────────────────────
+section_divider("24/7 Continuous Enrichment")
+help_button("continuous-enrichment")
+st.markdown(
+    "<span style='color:#a0a0c0;font-family:monospace;font-size:0.82rem;'>"
+    "Automatically enriches lectures, decomposes courses, generates jargon courses, "
+    "and advances education levels in a continuous loop.</span>",
+    unsafe_allow_html=True,
+)
+
+if "ce_running" not in st.session_state:
+    st.session_state["ce_running"] = False
+    st.session_state["ce_progress"] = None
+
+# Course selector
+ce_course_opts = {"All Courses": []}
+for c in courses:
+    ce_course_opts[c["title"]] = [str(c["id"])]
+ce_selected_label = st.selectbox("Target Course", list(ce_course_opts.keys()), key="ce_course")
+ce_target_ids = ce_course_opts[ce_selected_label]
+
+# Settings
+ce_c1, ce_c2 = st.columns(2)
+with ce_c1:
+    ce_enrich_before_decompose = st.number_input("Enrichments before decompose", 1, 20, 3, key="ce_ebd")
+    ce_jargon_per_cycle = st.number_input("Jargon courses per cycle", 0, 5, 1, key="ce_jpc")
+with ce_c2:
+    ce_decomp_before_level = st.number_input("Decompositions before level advance", 1, 10, 2, key="ce_dbl")
+    ce_rate_limit = st.number_input("Seconds between LLM calls", 1.0, 30.0, 2.0, step=1.0, key="ce_rl")
+ce_auto_render = st.checkbox("Auto-render after each cycle", value=False, key="ce_ar")
+
+def _ce_stop_flag():
+    return not st.session_state.get("ce_running", False)
+
+def _ce_progress_cb(progress):
+    st.session_state["ce_progress"] = progress
+
+def _ce_thread(config):
+    from core.continuous_engine import run_continuous
+    run_continuous(config, _ce_stop_flag, _ce_progress_cb)
+
+if not st.session_state["ce_running"]:
+    if st.button("Start Continuous Enrichment", type="primary", use_container_width=True, key="ce_start"):
+        from core.continuous_engine import ContinuousConfig
+        cfg = ContinuousConfig(
+            jargon_per_cycle=ce_jargon_per_cycle,
+            enrichments_before_decompose=ce_enrich_before_decompose,
+            decompositions_before_level_advance=ce_decomp_before_level,
+            auto_render=ce_auto_render,
+            rate_limit_s=ce_rate_limit,
+            target_course_ids=ce_target_ids,
+        )
+        st.session_state["ce_running"] = True
+        st.session_state["ce_progress"] = None
+        t = threading.Thread(target=_ce_thread, args=(cfg,), daemon=True)
+        t.start()
+        play_sfx("collect")
+        st.rerun()
+else:
+    if st.button("Stop Continuous Enrichment", type="secondary", use_container_width=True, key="ce_stop"):
+        st.session_state["ce_running"] = False
+        st.rerun()
+
+# Show live progress
+_cep = st.session_state.get("ce_progress")
+if _cep:
+    st.markdown(
+        f"<div style='font-family:monospace;font-size:0.82rem;padding:6px 10px;"
+        f"border-left:3px solid #40dc80;color:#b0b0d0;'>"
+        f"Cycle {_cep.cycle} | {_cep.current_action}<br>"
+        f"Enrichments: {_cep.total_enrichments} | Decompositions: {_cep.total_decompositions} | "
+        f"Jargon: {_cep.total_jargon} | Level Advances: {_cep.level_advances}</div>",
+        unsafe_allow_html=True,
+    )
+    if _cep.errors:
+        with st.expander(f"Errors ({len(_cep.errors)})", expanded=False):
+            st.code("\n".join(_cep.errors[-20:]), language="bash")
+    if st.session_state["ce_running"]:
+        time.sleep(2)
+        st.rerun()
+
 # ─── Already rendered files ───────────────────────────────────────────────────
 section_divider("Rendered Files")
 video_files = sorted(EXPORT_DIR.glob("*.mp4"))
