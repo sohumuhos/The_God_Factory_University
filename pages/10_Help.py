@@ -166,6 +166,7 @@ for anchor, entry in entries.items():
         "Reordering": "Timeline Editor",
         "Exporting": "Timeline Editor",
         "Batch": "Batch Render",
+        "Continuous": "Batch Render",
         "Prompt": "Batch Render",
         "Gpa": "Grades & Transcript",
         "Grade": "Grades & Transcript",

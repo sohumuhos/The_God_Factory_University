@@ -509,6 +509,36 @@ _reg("statistics-dashboard", "Statistics Dashboard",
      "- **Grade Distribution**: How your scores spread across A/B/C/D/F ranges\n\n"
      "Activity is automatically logged as you use the app.")
 
+# ─── Continuous Enrichment ────────────────────────────────────────────────────
+_reg("continuous-enrichment", "24/7 Continuous Enrichment",
+     "Automatically enriches your course lectures, generates sub-courses, creates "
+     "jargon courses, and advances education levels in a continuous loop.\n\n"
+     "**How it works:**\n"
+     "1. **Enrichment pass**: The AI rewrites every lecture narration to be richer, "
+     "more detailed, and truly educational with real examples and step-by-step explanations\n"
+     "2. **Decomposition pass**: After N enrichments, courses are automatically split "
+     "into deeper sub-courses for more granular learning\n"
+     "3. **Jargon pass**: Specialized terminology courses are generated to master "
+     "field-specific vocabulary\n"
+     "4. **Level advancement**: After M decompositions, the education level advances "
+     "to provide more sophisticated content\n\n"
+     "**Versioning:**\n"
+     "Every enrichment creates a new version — prior narration is never lost. You can "
+     "review how lectures evolved over successive enrichment passes.\n\n"
+     "**Settings:**\n"
+     "- **Enrichments before decompose**: How many enrichment cycles before triggering "
+     "a course decomposition (default: 3)\n"
+     "- **Decompositions before level advance**: How many decompositions before "
+     "advancing the education level (default: 2)\n"
+     "- **Jargon per cycle**: How many jargon sub-courses to generate per decomposition "
+     "cycle (default: 1)\n"
+     "- **Rate limit**: Seconds to wait between LLM calls to avoid rate limiting "
+     "(default: 2.0)\n"
+     "- **Auto-render**: Automatically render video lectures after each enrichment cycle\n\n"
+     "**Usage:**\n"
+     "Go to Batch Render → 24/7 Continuous Enrichment section. Select a target course "
+     "(or all courses), configure cycle parameters, and click Start.")
+
 
 def get_help(anchor: str) -> dict | None:
     """Return a help entry by anchor key, or None if not found."""
