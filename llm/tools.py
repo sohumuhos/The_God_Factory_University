@@ -15,6 +15,7 @@ from llm.tool_registry import Tool, call_tool, get_schemas, get_tool, list_tools
 import llm.tools_course  # noqa: F401
 import llm.tools_video  # noqa: F401
 import llm.tools_utility  # noqa: F401
+import llm.tools_enrichment  # noqa: F401
 
 __all__ = [
     "Tool",
