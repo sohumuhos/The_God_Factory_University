@@ -293,6 +293,34 @@ except Exception:
     pass
 
 with st.expander("Visual Effects", expanded=False):
+    # ── AI Backgrounds ────────────────────────────────────────────────────
+    _ls_ai_bg = st.toggle(
+        "Enable AI-generated backgrounds",
+        value=_current_vfx.get("ai_backgrounds", True),
+        key="ls_vfx_ai_bg",
+        help="When enabled, the renderer generates scene backgrounds via image providers. "
+             "When disabled, scenes use a dark gradient background.",
+    )
+    if _ls_ai_bg:
+        _ls_prov_opts = ["Auto (priority order)"]
+        try:
+            from media.diffusion.free_tier_cycler import get_all_providers as _ls_gap
+            for _lp in _ls_gap():
+                _ls_prov_opts.append(_lp["name"])
+        except Exception:
+            pass
+        _ls_saved_prov = _current_vfx.get("preferred_image_provider", "Auto (priority order)")
+        if _ls_saved_prov not in _ls_prov_opts:
+            _ls_saved_prov = "Auto (priority order)"
+        _ls_pref_prov = st.selectbox(
+            "Image provider", _ls_prov_opts,
+            index=_ls_prov_opts.index(_ls_saved_prov),
+            key="ls_vfx_img_prov",
+            help="Choose a specific provider or auto-select by priority and quota.",
+        )
+    else:
+        _ls_pref_prov = "Auto (priority order)"
+
     ve1, ve2 = st.columns(2)
     with ve1:
         _vfx_transitions = st.toggle("Scene transitions (crossfade)", value=_current_vfx.get("transitions", True), key="ls_vfx_trans")
@@ -303,6 +331,8 @@ with st.expander("Visual Effects", expanded=False):
         _vfx_particles = st.toggle("Ambient particles", value=_current_vfx.get("ambient_particles", True), key="ls_vfx_part")
         _vfx_wm = st.toggle("Watermark", value=_current_vfx.get("watermark", False), key="ls_vfx_wm")
     _new_vfx = {
+        "ai_backgrounds": _ls_ai_bg,
+        "preferred_image_provider": _ls_pref_prov,
         "transitions": _vfx_transitions, "ken_burns": _vfx_ken,
         "color_grade": _vfx_color, "text_overlay": _vfx_text,
         "ambient_particles": _vfx_particles, "watermark": _vfx_wm,

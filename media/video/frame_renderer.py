@@ -162,8 +162,8 @@ def build_frame_renderer(lecture: dict, scene: dict, particles: list[tuple],
             draw.text((pad + 24, text_y), line, fill=PALETTE["white"], font=body_font)
             text_y += line_spacing
 
-        # ── Visual prompt label — only when NO AI background image ─────────
-        if bg_image is None and visual_text:
+        # ── Visual prompt label — shown as overlay regardless of bg  ─────────
+        if visual_text:
             vis_y = int(H * 0.60)
             vis_max_y = int(H * 0.76)  # stop before waveform
             draw.text((pad + 24, vis_y), "[ Visual ]", fill=PALETTE["gold"], font=small_font)

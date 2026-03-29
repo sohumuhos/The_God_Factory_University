@@ -20,15 +20,23 @@ Anthropic uses its own SDK.
 from __future__ import annotations
 
 import json
+import math
 import os
 import platform
+import random
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Generator, Iterable
 
 import psutil
 import requests
+
+_DEFAULT_TIMEOUT = 60  # seconds per LLM call
+_MAX_RETRIES = 3
+_RETRY_BASE_DELAY = 2.0  # base seconds for exponential backoff
+_TRANSIENT_ERROR_TYPES = ("rate_limit", "timeout", "provider_down")
 
 # ─── Provider catalogue ───────────────────────────────────────────────────────
 
@@ -263,20 +271,46 @@ def classify_error(exc: Exception) -> tuple[str, str]:
     return "unknown", f"LLM error: {exc}"
 
 
-def chat(cfg: LLMConfig, messages: list[dict], stream: bool = False) -> str | Generator:
+def chat(cfg: LLMConfig, messages: list[dict], stream: bool = False,
+         timeout: int = _DEFAULT_TIMEOUT, retries: int = _MAX_RETRIES) -> str | Generator:
     ptype, base_url, api_key = _resolve_config(cfg)
-    if ptype == "anthropic":
-        return _anthropic_chat(cfg, api_key, messages, stream)
-    return _compat_chat(cfg, base_url, api_key, messages, stream)
+    last_error = ""
+    for attempt in range(max(1, retries)):
+        if ptype == "anthropic":
+            result = _anthropic_chat(cfg, api_key, messages, stream, timeout=timeout)
+        else:
+            result = _compat_chat(cfg, base_url, api_key, messages, stream, timeout=timeout)
+        # If streaming, return immediately (can't retry a generator)
+        if stream and not isinstance(result, str):
+            return result
+        if isinstance(result, str) and result.startswith("[LLM ERROR]"):
+            last_error = result
+            # Check if error is transient (worth retrying)
+            error_type = _extract_error_type(result)
+            if error_type in _TRANSIENT_ERROR_TYPES and attempt < retries - 1:
+                delay = _RETRY_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1)
+                time.sleep(delay)
+                continue
+            return result
+        return result
+    return last_error
 
 
-def _compat_chat(cfg: LLMConfig, base_url: str, api_key: str, messages: list[dict], stream: bool) -> str | Generator:
+def _extract_error_type(error_str: str) -> str:
+    """Extract the error type from an [LLM ERROR] string."""
+    import re
+    m = re.search(r'\(([^)]+)\)', error_str)
+    return m.group(1) if m else "unknown"
+
+
+def _compat_chat(cfg: LLMConfig, base_url: str, api_key: str, messages: list[dict],
+                  stream: bool, timeout: int = _DEFAULT_TIMEOUT) -> str | Generator:
     try:
         from openai import OpenAI
     except ImportError:
         return "[ERROR] openai package not installed. Run: pip install openai"
 
-    client = OpenAI(base_url=base_url, api_key=api_key or "none")
+    client = OpenAI(base_url=base_url, api_key=api_key or "none", timeout=timeout)
     full_messages = []
     if cfg.system_prompt:
         full_messages.append({"role": "system", "content": cfg.system_prompt})
@@ -304,15 +338,27 @@ def _compat_chat(cfg: LLMConfig, base_url: str, api_key: str, messages: list[dic
         return f"[LLM ERROR] ({error_type}) {user_msg}"
 
 
-def _anthropic_chat(cfg: LLMConfig, api_key: str, messages: list[dict], stream: bool) -> str:
+def _anthropic_chat(cfg: LLMConfig, api_key: str, messages: list[dict], stream: bool,
+                     timeout: int = _DEFAULT_TIMEOUT) -> str | Generator:
     try:
         import anthropic
     except ImportError:
         return "[ERROR] anthropic package not installed. Run: pip install anthropic"
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
     system = cfg.system_prompt or "You are a helpful professor."
     try:
+        if stream:
+            with client.messages.stream(
+                model=cfg.model,
+                max_tokens=cfg.max_tokens,
+                system=system,
+                messages=messages,
+            ) as stream_resp:
+                def _gen():
+                    for text in stream_resp.text_stream:
+                        yield text
+                return _gen()
         resp = client.messages.create(
             model=cfg.model,
             max_tokens=cfg.max_tokens,

@@ -278,18 +278,54 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ── AI Backgrounds ────────────────────────────────────────────────────────────
+_prev_vfx = {}
+try:
+    _prev_vfx = json.loads(get_setting("vfx_config", "{}"))
+except Exception:
+    pass
+
+ai_bg_enabled = st.toggle(
+    "Enable AI-generated backgrounds",
+    value=_prev_vfx.get("ai_backgrounds", True),
+    help="When enabled, the renderer will call image providers to generate scene backgrounds. "
+         "When disabled, scenes use a dark gradient background instead.",
+)
+
+if ai_bg_enabled:
+    _prov_options = ["Auto (priority order)"]
+    try:
+        from media.diffusion.free_tier_cycler import get_all_providers as _gap
+        for _p in _gap():
+            _prov_options.append(_p["name"])
+    except Exception:
+        pass
+    _saved_prov = _prev_vfx.get("preferred_image_provider", "Auto (priority order)")
+    if _saved_prov not in _prov_options:
+        _saved_prov = "Auto (priority order)"
+    preferred_provider = st.selectbox(
+        "Image provider",
+        _prov_options,
+        index=_prov_options.index(_saved_prov),
+        help="Choose a specific provider or let the system auto-select based on priority and quota.",
+    )
+else:
+    preferred_provider = "Auto (priority order)"
+
 ve1, ve2 = st.columns(2)
 with ve1:
-    apply_transitions = st.toggle("Scene transitions (crossfade)", value=True)
-    apply_ken_burns = st.toggle("Ken Burns pan/zoom on stills", value=True)
-    apply_color_grade = st.toggle("Cinematic color grading", value=True)
+    apply_transitions = st.toggle("Scene transitions (crossfade)", value=_prev_vfx.get("transitions", True))
+    apply_ken_burns = st.toggle("Ken Burns pan/zoom on stills", value=_prev_vfx.get("ken_burns", True))
+    apply_color_grade = st.toggle("Cinematic color grading", value=_prev_vfx.get("color_grade", True))
 with ve2:
-    apply_text_overlay = st.toggle("Title/term text overlays", value=True)
-    apply_ambient = st.toggle("Ambient particle effects", value=False)
-    apply_watermark = st.toggle("Watermark / branding", value=False)
+    apply_text_overlay = st.toggle("Title/term text overlays", value=_prev_vfx.get("text_overlay", True))
+    apply_ambient = st.toggle("Ambient particle effects", value=_prev_vfx.get("ambient_particles", False))
+    apply_watermark = st.toggle("Watermark / branding", value=_prev_vfx.get("watermark", False))
 
 # Store visual effects as render settings
 vfx_config = {
+    "ai_backgrounds": ai_bg_enabled,
+    "preferred_image_provider": preferred_provider,
     "transitions": apply_transitions,
     "ken_burns": apply_ken_burns,
     "color_grade": apply_color_grade,

@@ -150,22 +150,41 @@ class ProfessorBaseMixin:
         return result, cfg.provider
 
     def _truncate_history(self) -> list[dict]:
-        """Return chat history truncated to fit the provider's context window."""
+        """Return chat history truncated to fit the provider's context window.
+
+        Preserves the first user message (topic context) and the most recent
+        messages that fit within the token budget. This avoids lossy mid-cuts.
+        """
         messages = self._history()
+        if not messages:
+            return messages
         cfg = self._cfg()
         caps = PROVIDER_CAPABILITIES.get(cfg.provider, {})
         ctx_window = caps.get("context_window", 4096)
         budget = int(ctx_window * 0.75)
-        total = 0
-        kept: list[dict] = []
-        for msg in reversed(messages):
-            tokens = estimate_tokens(msg["content"])
-            if total + tokens > budget:
+
+        total = sum(estimate_tokens(m["content"]) for m in messages)
+        if total <= budget:
+            return messages
+
+        # Always keep the first message (sets topic context)
+        first = messages[0]
+        first_tokens = estimate_tokens(first["content"])
+        remaining_budget = budget - first_tokens
+        if remaining_budget <= 0:
+            return [first]
+
+        # Fill from the end (most recent messages) until budget runs out
+        kept_tail: list[dict] = []
+        tail_tokens = 0
+        for msg in reversed(messages[1:]):
+            t = estimate_tokens(msg["content"])
+            if tail_tokens + t > remaining_budget:
                 break
-            kept.append(msg)
-            total += tokens
-        kept.reverse()
-        return kept
+            kept_tail.append(msg)
+            tail_tokens += t
+        kept_tail.reverse()
+        return [first] + kept_tail
 
     def _safe_parse_json(self, raw: str) -> tuple[dict | list | None, list[str]]:
         """Parse JSON from LLM output with repair attempts."""

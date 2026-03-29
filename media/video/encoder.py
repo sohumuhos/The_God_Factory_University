@@ -53,32 +53,44 @@ def render_lecture(lecture_data: dict, output_dir: Path, chunk_by_scene: bool = 
     # ── Try to get AI-generated background for scenes with visual_prompt ─────
     bg_images: dict[str, "Image.Image | None"] = {}
     try:
-        from media.diffusion.free_tier_cycler import generate_image_with_fallback
-        gen_count = 0
-        for i, scene in enumerate(scenes):
-            visual = scene.get("visual_prompt", "")
-            bid = scene.get("block_id", "?")
-            if visual and "title card" not in visual.lower():
-                try:
-                    img_path, prov_name = generate_image_with_fallback(
-                        visual, 960, 540,
-                        course_id=lecture_data.get("course_id", ""),
-                        lecture_id=lid,
-                    )
-                    if img_path and img_path.exists():
-                        from PIL import Image
-                        bg_images[bid] = Image.open(img_path).convert("RGB")
-                        gen_count += 1
-                        log_render(lid, "img_gen_ok", scene=bid, provider=prov_name)
-                    else:
-                        log_render(lid, "img_gen_miss", scene=bid,
-                                   reason="all_providers_returned_none")
-                except Exception as img_err:
-                    log_error(f"Image gen failed for scene {bid}: {img_err}",
-                              category="diffusion", error_id="IMG_GEN_FAIL")
-        log_render(lid, "img_gen_done", generated=gen_count, total=len(scenes))
-    except ImportError:
-        log_render(lid, "img_gen_skip", reason="diffusion_not_installed")
+        from media.video.scene_builder import load_vfx_config as _load_vfx
+        _vfx_cfg = _load_vfx()
+        _ai_bg_enabled = _vfx_cfg.get("ai_backgrounds", True)
+    except Exception:
+        _ai_bg_enabled = True
+
+    if _ai_bg_enabled:
+        try:
+            from media.diffusion.free_tier_cycler import generate_image_with_fallback
+            gen_count = 0
+            _preferred_prov = _vfx_cfg.get("preferred_image_provider", "Auto (priority order)") if _ai_bg_enabled else ""
+            for i, scene in enumerate(scenes):
+                visual = scene.get("visual_prompt", "")
+                bid = scene.get("block_id", "?")
+                if visual and "title card" not in visual.lower():
+                    try:
+                        img_path, prov_name = generate_image_with_fallback(
+                            visual, 960, 540,
+                            course_id=lecture_data.get("course_id", ""),
+                            lecture_id=lid,
+                            preferred_provider=_preferred_prov if _preferred_prov != "Auto (priority order)" else "",
+                        )
+                        if img_path and img_path.exists():
+                            from PIL import Image
+                            bg_images[bid] = Image.open(img_path).convert("RGB")
+                            gen_count += 1
+                            log_render(lid, "img_gen_ok", scene=bid, provider=prov_name)
+                        else:
+                            log_render(lid, "img_gen_miss", scene=bid,
+                                       reason="all_providers_returned_none")
+                    except Exception as img_err:
+                        log_error(f"Image gen failed for scene {bid}: {img_err}",
+                                  category="diffusion", error_id="IMG_GEN_FAIL")
+            log_render(lid, "img_gen_done", generated=gen_count, total=len(scenes))
+        except ImportError:
+            log_render(lid, "img_gen_skip", reason="diffusion_not_installed")
+    else:
+        log_render(lid, "img_gen_skip", reason="ai_backgrounds_disabled")
 
     clips: list[tuple[dict, "VideoClip"]] = []
     failed_scenes: list[str] = []

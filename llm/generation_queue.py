@@ -6,6 +6,7 @@ workflow system, supporting progress callbacks, retry, and resume.
 from __future__ import annotations
 
 import json
+import random
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -97,7 +98,9 @@ class GenerationQueue:
             except Exception as e:
                 last_error = str(e)
                 if attempt < self.max_retries - 1:
-                    time.sleep(self.retry_delay * (attempt + 1))
+                    # Exponential backoff with jitter to prevent thundering herd
+                    delay = self.retry_delay * (2 ** attempt) + random.uniform(0, 1)
+                    time.sleep(delay)
 
         return TaskResult(
             task=task,

@@ -269,14 +269,28 @@ class _TrackedProvider(ImageProvider):
 def generate_image_with_fallback(
     prompt: str, width: int = 960, height: int = 540,
     course_id: str = "", lecture_id: str = "",
+    preferred_provider: str = "",
+    timeout: float = 30.0,
 ) -> tuple[Path | None, str]:
     """Try every available provider in priority order until one succeeds.
 
+    Args:
+        preferred_provider: If set, try this provider first before cycling.
+        timeout: Max seconds per provider attempt (default 30s).
+
     Returns (path, provider_name) or (None, "") if all fail.
     """
+    import signal
+    import threading
     from core.logger import log_error
     configs = _load_provider_config()
     configs.sort(key=lambda c: c.get("priority", 99))
+
+    # If a preferred provider is specified, move it to the front
+    if preferred_provider:
+        preferred = [c for c in configs if c["name"] == preferred_provider]
+        rest = [c for c in configs if c["name"] != preferred_provider]
+        configs = preferred + rest
 
     try:
         from core.database import get_setting
@@ -301,10 +315,35 @@ def generate_image_with_fallback(
         tracked = _TrackedProvider(provider)
         tried.append(name)
         try:
-            result = tracked.generate_image(prompt, width, height,
-                                            course_id, lecture_id)
+            # Run generation with timeout using a thread
+            result_holder: list[Path | None] = [None]
+            exc_holder: list[Exception | None] = [None]
+
+            def _generate():
+                try:
+                    result_holder[0] = tracked.generate_image(
+                        prompt, width, height, course_id, lecture_id)
+                except Exception as e:
+                    exc_holder[0] = e
+
+            t = threading.Thread(target=_generate, daemon=True)
+            t.start()
+            t.join(timeout=timeout)
+
+            if t.is_alive():
+                log_error(f"Provider {name} timed out after {timeout}s",
+                          category="diffusion", error_id="PROVIDER_TIMEOUT")
+                continue
+
+            if exc_holder[0] is not None:
+                raise exc_holder[0]
+
+            result = result_holder[0]
             if result is not None and result.exists():
                 return result, name
+            else:
+                log_error(f"Provider {name} returned None for prompt: {prompt[:80]}",
+                          category="diffusion", error_id="PROVIDER_NONE")
         except Exception as exc:
             log_error(f"Provider {name} error: {exc}",
                       category="diffusion", error_id="PROVIDER_ERR")
@@ -312,4 +351,7 @@ def generate_image_with_fallback(
     if tried:
         log_error(f"All providers failed for prompt ({', '.join(tried)} tried)",
                   category="diffusion", error_id="ALL_PROVIDERS_FAIL")
+    else:
+        log_error("No image providers available (none passed quota+availability checks)",
+                  category="diffusion", error_id="NO_PROVIDERS")
     return None, ""

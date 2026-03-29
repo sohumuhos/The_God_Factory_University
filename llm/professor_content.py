@@ -8,6 +8,38 @@ from llm.model_profiles import build_audit_prompt_constraints, resolve_audit_pro
 from llm.providers import PROVIDER_CAPABILITIES, simple_complete
 from core.database import add_remediation_item, add_xp, append_chat, save_llm_generated
 
+# Minimal required-key schemas for generated content types
+_CONTENT_SCHEMAS: dict[str, set[str]] = {
+    "curriculum": {"title", "modules"},
+    "quiz": {"questions"},
+    "homework": {"title", "parts"},
+    "study_guide": {"key_concepts"},
+    "grade": {"score", "feedback"},
+    "rabbit_hole": {"term"},
+    "concept_map": {"nodes", "edges"},
+    "suggestions": {"suggestions"},
+}
+
+
+def _validate_content(parsed: dict | list | None, content_type: str) -> list[str]:
+    """Validate parsed JSON against minimal key schema. Returns list of warnings."""
+    required = _CONTENT_SCHEMAS.get(content_type, set())
+    if not required or parsed is None:
+        return []
+    warnings: list[str] = []
+    target = parsed
+    if isinstance(parsed, list):
+        return []  # Lists don't have top-level key requirements
+    if isinstance(target, dict):
+        missing = required - set(target.keys())
+        if missing:
+            warnings.append(f"Missing required fields for {content_type}: {', '.join(sorted(missing))}")
+        for key in required & set(target.keys()):
+            val = target[key]
+            if val is None or (isinstance(val, (str, list, dict)) and not val):
+                warnings.append(f"Field '{key}' is present but empty")
+    return warnings
+
 
 class ProfessorContentMixin:
     """Interactive teaching and grading behavior."""
@@ -23,7 +55,10 @@ Output ONLY a valid JSON object matching the schema. No markdown, no explanation
         result = simple_complete(cfg, prompt)
         save_llm_generated(result, "curriculum")
         add_xp(100, "Generated curriculum", "llm_generate")
-        return self._wrap(result, cfg.provider, expect_json=True)
+        resp = self._wrap(result, cfg.provider, expect_json=True)
+        if resp.parsed_json:
+            resp.warnings.extend(_validate_content(resp.parsed_json, "curriculum"))
+        return resp
 
     def generate_quiz(self, lecture_data: dict, num_questions: int = 5):
         title = lecture_data.get("title", "Lecture")
@@ -36,7 +71,10 @@ Output ONLY valid JSON."""
         cfg = self._cfg()
         result = simple_complete(cfg, prompt)
         save_llm_generated(result, "quiz")
-        return self._wrap(result, cfg.provider, expect_json=True)
+        resp = self._wrap(result, cfg.provider, expect_json=True)
+        if resp.parsed_json:
+            resp.warnings.extend(_validate_content(resp.parsed_json, "quiz"))
+        return resp
 
     def generate_homework(self, lecture_data: dict):
         title = lecture_data.get("title", "Lecture")
@@ -50,7 +88,10 @@ Output as JSON: {{"title": "...", "type": "homework", "max_score": 100, "parts":
         cfg = self._cfg()
         result = simple_complete(cfg, prompt)
         save_llm_generated(result, "homework")
-        return self._wrap(result, cfg.provider, expect_json=True)
+        resp = self._wrap(result, cfg.provider, expect_json=True)
+        if resp.parsed_json:
+            resp.warnings.extend(_validate_content(resp.parsed_json, "homework"))
+        return resp
 
     def study_guide(self, lecture_data: dict):
         prompt = f"""Create a concise study guide for: "{lecture_data.get('title', 'Lecture')}"
@@ -60,7 +101,10 @@ Format as JSON: {{"title": "...", "key_concepts": [...], "formulas": [...], "pra
         cfg = self._cfg()
         result = simple_complete(cfg, prompt)
         save_llm_generated(result, "study_guide")
-        return self._wrap(result, cfg.provider, expect_json=True)
+        resp = self._wrap(result, cfg.provider, expect_json=True)
+        if resp.parsed_json:
+            resp.warnings.extend(_validate_content(resp.parsed_json, "study_guide"))
+        return resp
 
     def grade_essay(self, essay_text: str, rubric: str = ""):
         prompt = f"""Grade this student essay and provide structured feedback.
@@ -73,7 +117,10 @@ Essay:
 Output JSON: {{"score": 85, "max_score": 100, "grade": "B", "strengths": [...], "improvements": [...], "feedback": "..."}}"""
         cfg = self._cfg()
         result = simple_complete(cfg, prompt)
-        return self._wrap(result, cfg.provider, expect_json=True)
+        resp = self._wrap(result, cfg.provider, expect_json=True)
+        if resp.parsed_json:
+            resp.warnings.extend(_validate_content(resp.parsed_json, "grade"))
+        return resp
 
     def grade_code(self, code_text: str, task_description: str = ""):
         prompt = f"""Review this student code submission.
@@ -86,7 +133,10 @@ Code:
 Output JSON: {{"score": 80, "max_score": 100, "grade": "B", "correctness": "...", "style": "...", "improvements": [...], "feedback": "..."}}"""
         cfg = self._cfg()
         result = simple_complete(cfg, prompt)
-        return self._wrap(result, cfg.provider, expect_json=True)
+        resp = self._wrap(result, cfg.provider, expect_json=True)
+        if resp.parsed_json:
+            resp.warnings.extend(_validate_content(resp.parsed_json, "grade"))
+        return resp
 
     def audit_packet(self, packet: dict, total_passes: int | None = None):
         cfg = self._cfg()

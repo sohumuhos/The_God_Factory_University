@@ -202,7 +202,27 @@ _TOOL_CALL_RE = re.compile(
 
 
 def parse_tool_call(text: str) -> tuple[str, dict] | None:
-    """Extract a tool call from LLM output. Returns (tool_name, args) or None."""
+    """Extract a tool call from LLM output. Returns (tool_name, args) or None.
+
+    Tries multiple strategies:
+      1. Find {"tool": "...", "args": {...}} via bracket-balanced extraction
+      2. Fallback to regex for simple flat args
+    """
+    # Strategy 1: find the outermost JSON object containing "tool" and "args"
+    for i, ch in enumerate(text):
+        if ch == '{':
+            obj_str = _extract_balanced_json(text, i)
+            if obj_str:
+                try:
+                    parsed = json.loads(obj_str)
+                    if isinstance(parsed, dict) and "tool" in parsed and "args" in parsed:
+                        tool_name = str(parsed["tool"])
+                        args = parsed["args"] if isinstance(parsed["args"], dict) else {}
+                        return tool_name, args
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+    # Strategy 2: regex fallback for simple cases
     m = _TOOL_CALL_RE.search(text)
     if not m:
         return None
@@ -210,15 +230,42 @@ def parse_tool_call(text: str) -> tuple[str, dict] | None:
     try:
         args = json.loads(m.group(2))
     except (json.JSONDecodeError, ValueError):
-        # Try with bracket balancing
         raw_args = m.group(2)
         try:
-            # Attempt more lenient parse
             fixed = re.sub(r",\s*}", "}", raw_args)
             args = json.loads(fixed)
         except Exception:
             return None
     return tool_name, args
+
+
+def _extract_balanced_json(text: str, start: int) -> str | None:
+    """Extract a balanced JSON object starting at `start` index."""
+    if start >= len(text) or text[start] != '{':
+        return None
+    depth = 0
+    in_string = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if escape:
+            escape = False
+            continue
+        if ch == '\\' and in_string:
+            escape = True
+            continue
+        if ch == '"' and not escape:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
 
 
 # ─── Agent system prompt ──────────────────────────────────────────────────────
@@ -358,11 +405,32 @@ def run_agent(
                 else:
                     # Execute tool
                     tool_result = call_tool(tool_name, tool_args)
-                    result_step = AgentStep(
-                        step_num=step_num, action="tool_result",
-                        content=json.dumps(tool_result)[:2000],
-                        tool_name=tool_name, tool_result=tool_result,
-                    )
+                    # Check for critical tool failures
+                    if isinstance(tool_result, dict) and tool_result.get("error"):
+                        result_step = AgentStep(
+                            step_num=step_num, action="tool_result",
+                            content=f"Tool error: {tool_result['error']}",
+                            tool_name=tool_name, tool_result=tool_result,
+                        )
+                        # Count consecutive tool errors
+                        recent_errors = sum(
+                            1 for s in job.steps[-6:]
+                            if s.action == "tool_result" and isinstance(s.tool_result, dict) and s.tool_result.get("error")
+                        )
+                        if recent_errors >= 3:
+                            job.steps.append(result_step)
+                            job.error = f"Stopped: {recent_errors} consecutive tool errors"
+                            job.status = "failed"
+                            save_job(job)
+                            if progress_callback:
+                                progress_callback(job)
+                            return job
+                    else:
+                        result_step = AgentStep(
+                            step_num=step_num, action="tool_result",
+                            content=json.dumps(tool_result)[:2000],
+                            tool_name=tool_name, tool_result=tool_result,
+                        )
                 job.steps.append(result_step)
             else:
                 # No tool call — just thinking

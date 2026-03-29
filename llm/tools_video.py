@@ -219,11 +219,11 @@ def enhance_narration(lecture_id: str, block_id: str, style: str = "clear and en
         "Output only the rewritten narration text, nothing else."
     )
     result = simple_complete(cfg, prompt)
-    if not result.startswith("[LLM ERROR]"):
+    if result and not result.startswith("[LLM ERROR]") and not result.startswith("[ERROR]"):
         scene["narration_prompt"] = result
         _update_lecture_data(lecture_id, data)
         return {"status": "enhanced", "block_id": block_id, "new_narration": result[:200]}
-    return {"error": result}
+    return {"error": result or "LLM returned empty response"}
 
 
 @register(
