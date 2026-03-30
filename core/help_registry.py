@@ -539,6 +539,28 @@ _reg("continuous-enrichment", "24/7 Continuous Enrichment",
      "Go to Batch Render → 24/7 Continuous Enrichment section. Select a target course "
      "(or all courses), configure cycle parameters, and click Start.")
 
+# ─── Auto Pipeline ────────────────────────────────────────────────────────────
+_reg("auto-pipeline", "One-Click Auto Pipeline",
+     "The Auto Pipeline automates multi-step workflows with a single click, "
+     "bypassing manual page navigation.\n\n"
+     "**Presets:**\n"
+     "- **Full Course Build**: Enter a topic → generates curriculum, enriches narrations, "
+     "creates jargon sub-course, renders all lectures to MP4\n"
+     "- **Deep Enrichment Cycle**: Select courses → enriches, decomposes into sub-courses, "
+     "generates jargon, enriches sub-courses, renders everything\n"
+     "- **Study Prep Package**: Select courses → generates SM-2 flashcards and quizzes "
+     "for every lecture\n"
+     "- **Full Render Pipeline**: Select courses → enriches narrations then batch renders "
+     "all lectures\n"
+     "- **Custom Pipeline**: Toggle individual steps on/off in any combination\n\n"
+     "**Configuration:**\n"
+     "- Topic, difficulty, and pacing (for course generation)\n"
+     "- Target courses (for enrichment/render presets)\n"
+     "- FPS, resolution, and rate limit settings\n\n"
+     "**Usage:**\n"
+     "Go to Auto Pipeline (page 19), choose a preset, configure inputs, "
+     "and click Launch Pipeline. Monitor progress via the live log.")
+
 
 def get_help(anchor: str) -> dict | None:
     """Return a help entry by anchor key, or None if not found."""

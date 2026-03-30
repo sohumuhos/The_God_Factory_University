@@ -188,6 +188,7 @@ for anchor, entry in entries.items():
         "Statistics": "Statistics",
         "Agent": "Agent",
         "Qualifications": "Qualifications",
+        "Auto": "Auto Pipeline",
     }
     group_name = name_map.get(prefix, "General")
     groups.setdefault(group_name, []).append(entry)
@@ -199,7 +200,7 @@ GROUP_ORDER = [
     "Grades & Transcript", "Achievements & XP", "XP & Progression",
     "Settings", "LLM Setup", "Diagnostics",
     "Placement & Testing", "Programs & Degrees", "Student Profile",
-    "Statistics", "Agent", "Qualifications", "General",
+    "Statistics", "Agent", "Qualifications", "Auto Pipeline", "General",
 ]
 
 # Sidebar quick links
