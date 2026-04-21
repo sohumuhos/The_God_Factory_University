@@ -63,14 +63,25 @@ def render_lecture(lecture_data: dict, output_dir: Path, chunk_by_scene: bool = 
         try:
             from media.diffusion.free_tier_cycler import generate_image_with_fallback
             gen_count = 0
-            _preferred_prov = _vfx_cfg.get("preferred_image_provider", "Auto (priority order)") if _ai_bg_enabled else ""
+            _preferred_prov = (
+                _vfx_cfg.get("preferred_image_provider", "")
+                or get_setting("image_provider", "Auto (priority order)")
+            ) if _ai_bg_enabled else ""
+            # Build context prefix so diffusion images match the lecture subject
+            _ctx_title = lecture_data.get("title", "")
+            _ctx_course = lecture_data.get("course_title", "")
+            _ctx_prefix = ""
+            if _ctx_course and _ctx_title:
+                _ctx_prefix = f"{_ctx_course}: {_ctx_title} — "
+            elif _ctx_title:
+                _ctx_prefix = f"{_ctx_title} — "
             for i, scene in enumerate(scenes):
                 visual = scene.get("visual_prompt", "")
                 bid = scene.get("block_id", "?")
                 if visual and "title card" not in visual.lower():
                     try:
                         img_path, prov_name = generate_image_with_fallback(
-                            visual, 960, 540,
+                            _ctx_prefix + visual, 960, 540,
                             course_id=lecture_data.get("course_id", ""),
                             lecture_id=lid,
                             preferred_provider=_preferred_prov if _preferred_prov != "Auto (priority order)" else "",

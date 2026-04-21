@@ -42,8 +42,8 @@ class PollinationsProvider(ImageProvider):
     def generate_image(self, prompt: str, width: int = 960, height: int = 540) -> Path | None:
         _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         full_prompt = (
-            "educational motion design, crisp typography, "
-            "technical diagrams, soft volumetric lighting, " + prompt
+            prompt + ", educational illustration, clean layout, "
+            "soft volumetric lighting, high detail"
         )
         encoded = urllib.parse.quote(full_prompt, safe="")
         seed = int(hashlib.sha256(prompt.encode()).hexdigest()[:8], 16)

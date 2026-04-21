@@ -80,7 +80,19 @@ def enrich_course_narration(course_id: str) -> dict:
             recipe = data.get("video_recipe", {})
             scenes = recipe.get("scene_blocks", [])
             if not scenes:
-                continue
+                # Generate a default scene so the lecture can still be enriched
+                default_dur = data.get("duration_min", 5) * 60
+                scenes = [{
+                    "block_id": "A",
+                    "duration_s": default_dur,
+                    "narration_prompt": (
+                        f"This lecture covers {lec.get('title', 'the topic')}. "
+                        f"We will explore: {', '.join(data.get('learning_objectives', [])[:3])}."
+                    ),
+                    "visual_prompt": f"Educational explainer for {lec.get('title', 'lecture')}.",
+                    "ambiance": {"music": "ambient", "sfx": "gentle", "color_palette": "cyan and dark"},
+                }]
+                data.setdefault("video_recipe", {})["scene_blocks"] = scenes
             for scene in scenes:
                 narr = scene.get("narration_prompt", "")
                 dur = scene.get("duration_s", 60)

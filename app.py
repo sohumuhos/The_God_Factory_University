@@ -8,6 +8,17 @@ import sys
 import time
 from pathlib import Path
 
+# ── Suppress torch.classes watcher noise ──────────────────────────────────────
+# Streamlit's local_sources_watcher inspects module __path__ attributes, which
+# causes a RuntimeError on torch.classes.  Patching early avoids 1000+ log spam.
+try:
+    import torch  # noqa: F401
+    _tc = getattr(torch, "classes", None)
+    if _tc is not None and not hasattr(_tc, "__path__"):
+        _tc.__path__ = []  # give watcher a harmless iterable
+except Exception:
+    pass
+
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
@@ -44,6 +55,7 @@ NAV_GROUPS = [
             ("pages/03_Professor_AI.py", "[>] Professor Ileices"),
             ("pages/06_Grades.py", "[>] My Progress"),
             ("pages/07_Achievements.py", "[>] Achievements"),
+            ("pages/21_Quests.py", "[>] Weekly Quests"),
             ("pages/14_Programs.py", "[>] Programs"),
             ("pages/15_Profile.py", "[>] My Profile"),
             ("pages/16_Statistics.py", "[>] Statistics"),
@@ -57,12 +69,14 @@ NAV_GROUPS = [
             ("pages/04_Timeline_Editor.py", "[>] Timeline Editor"),
             ("pages/05_Batch_Render.py", "[>] Batch Render"),
             ("pages/17_Agent.py", "[>] AI Agent"),
+            ("pages/19_Auto_Pipeline.py", "[>] Auto Pipeline"),
         ],
     ),
     (
         "Setup & Support",
         True,
         [
+            ("pages/20_Wizards.py", "[*] Wizards Hub"),
             ("pages/11_LLM_Setup.py", "[>] LLM Setup Wizard"),
             ("pages/08_Settings.py", "[>] Settings"),
             ("pages/10_Help.py", "[?] Help & Tutorial"),

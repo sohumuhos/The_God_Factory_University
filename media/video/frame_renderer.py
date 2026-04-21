@@ -162,17 +162,8 @@ def build_frame_renderer(lecture: dict, scene: dict, particles: list[tuple],
             draw.text((pad + 24, text_y), line, fill=PALETTE["white"], font=body_font)
             text_y += line_spacing
 
-        # ── Visual prompt label — shown as overlay regardless of bg  ─────────
-        if visual_text:
-            vis_y = int(H * 0.60)
-            vis_max_y = int(H * 0.76)  # stop before waveform
-            draw.text((pad + 24, vis_y), "[ Visual ]", fill=PALETTE["gold"], font=small_font)
-            vis_font_sz = small_font.size if hasattr(small_font, 'size') else 12
-            for line in _wrap(visual_text, W // (vis_font_sz // 2 + 1) if vis_font_sz > 0 else 60):
-                vis_y += vis_font_sz + 4
-                if vis_y > vis_max_y:
-                    break
-                draw.text((pad + 24, vis_y), line, fill=PALETTE["silver"], font=small_font)
+        # NOTE: visual_prompt is for diffusion image generation only — never
+        # render it as visible text on the video frame.
 
         # ── Waveform strip ───────────────────────────────────────────────────
         wave_y = int(H * 0.80)

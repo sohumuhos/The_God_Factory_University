@@ -68,26 +68,31 @@ section_divider("Achievement Badges")
 help_button("achievement-system")
 
 ALL_BADGES = [
-    {"id": "first_lecture",    "title": "First Steps",        "desc": "Complete your first lecture.",           "category": "progress"},
-    {"id": "first_curriculum", "title": "Architect",          "desc": "Generate your first AI curriculum.",     "category": "creation"},
-    {"id": "scholar",          "title": "Scholar",            "desc": "Complete 10 lectures.",                  "category": "progress"},
-    {"id": "sage",             "title": "Sage",               "desc": "Complete 25 lectures.",                  "category": "progress"},
-    {"id": "grandmaster",      "title": "Grandmaster",        "desc": "Complete 50 lectures.",                  "category": "progress"},
-    {"id": "perfect_score",    "title": "Perfect Score",      "desc": "Achieve 100% on any assignment.",        "category": "grades"},
-    {"id": "gpa_honor",        "title": "Honor Roll",         "desc": "Maintain GPA above 3.5.",                "category": "grades"},
-    {"id": "night_owl",        "title": "Night Owl",          "desc": "Study after midnight.",                  "category": "habits"},
-    {"id": "rabbit_hole",      "title": "Deep Diver",         "desc": "Use Research Rabbit Hole 5 times.",      "category": "exploration"},
-    {"id": "batch_render",     "title": "Auteur",             "desc": "Complete a batch render.",               "category": "creation"},
-    {"id": "certificate",      "title": "Certified",          "desc": "Earn Certificate eligibility.",          "category": "degree"},
-    {"id": "associate",        "title": "Associate",          "desc": "Earn Associate degree eligibility.",     "category": "degree"},
-    {"id": "bachelor",         "title": "Bachelor",           "desc": "Earn Bachelor degree eligibility.",      "category": "degree"},
-    {"id": "master",           "title": "Master",             "desc": "Earn Master degree eligibility.",        "category": "degree"},
-    {"id": "doctorate",        "title": "Doctor",             "desc": "Earn Doctorate eligibility.",            "category": "degree"},
-    {"id": "first_quiz",       "title": "Quiz Taker",         "desc": "Take your first generated quiz.",        "category": "assessment"},
-    {"id": "streak_7",         "title": "Relentless",         "desc": "Study 7 days in a row.",                 "category": "habits"},
-    {"id": "xp_1000",          "title": "Thousand Points",    "desc": "Earn 1,000 XP total.",                   "category": "xp"},
-    {"id": "xp_10000",         "title": "Ten Thousand",       "desc": "Earn 10,000 XP total.",                  "category": "xp"},
-    {"id": "all_courses",      "title": "Completionist",      "desc": "Finish every lecture in every course.",  "category": "progress"},
+    # ── Progress ──────────────────────────────────────────────────────────────
+    {"id": "first_lecture",    "title": "Awakening",           "desc": "Complete your first lecture.",            "category": "progress"},
+    {"id": "ten_lectures",     "title": "Apprentice Path",     "desc": "Complete 10 lectures.",                   "category": "progress"},
+    {"id": "speed_reader",     "title": "Swift Scholar",       "desc": "Complete a lecture in one session.",       "category": "progress"},
+    # ── Academic ──────────────────────────────────────────────────────────────
+    {"id": "first_quiz",       "title": "Trial Taker",         "desc": "Submit your first assignment.",            "category": "academic"},
+    {"id": "perfect_score",    "title": "Flawless",            "desc": "Score 100% on any assignment.",            "category": "academic"},
+    # ── XP ────────────────────────────────────────────────────────────────────
+    {"id": "xp_1000",          "title": "Rising Star",         "desc": "Earn 1,000 XP total.",                    "category": "xp"},
+    {"id": "xp_5000",          "title": "Transcendent Adept",  "desc": "Earn 5,000 XP total.",                    "category": "xp"},
+    # ── Degree ────────────────────────────────────────────────────────────────
+    {"id": "degree_cert",      "title": "Certified",           "desc": "Earn Certificate eligibility.",            "category": "degree"},
+    {"id": "degree_assoc",     "title": "Associate",           "desc": "Earn Associate degree eligibility.",       "category": "degree"},
+    {"id": "degree_bachelor",  "title": "Bachelor",            "desc": "Earn Bachelor degree eligibility.",        "category": "degree"},
+    {"id": "degree_master",    "title": "Grand Scholar",       "desc": "Earn Master degree eligibility.",          "category": "degree"},
+    {"id": "degree_doctor",    "title": "Doctorate",           "desc": "Earn Doctorate eligibility.",              "category": "degree"},
+    # ── Habits ────────────────────────────────────────────────────────────────
+    {"id": "night_owl",        "title": "Night Owl",           "desc": "Study after midnight.",                    "category": "habit"},
+    # ── System ────────────────────────────────────────────────────────────────
+    {"id": "bulk_import",      "title": "Archivist",           "desc": "Import a bulk JSON curriculum.",           "category": "system"},
+    # ── LLM ───────────────────────────────────────────────────────────────────
+    {"id": "professor_query",  "title": "The Asking",          "desc": "Query the Professor AI 10 times.",         "category": "llm"},
+    # ── Media ─────────────────────────────────────────────────────────────────
+    {"id": "video_render",     "title": "Projector",           "desc": "Render your first lecture video.",         "category": "media"},
+    {"id": "batch_render",     "title": "Dreamweaver",         "desc": "Batch render 5 or more lectures.",         "category": "media"},
 ]
 
 unlocked_ids = {a["id"] for a in get_all_achievements()}

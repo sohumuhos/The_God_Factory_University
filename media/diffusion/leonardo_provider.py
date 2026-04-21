@@ -31,7 +31,7 @@ class LeonardoProvider(ImageProvider):
                 "https://cloud.leonardo.ai/api/rest/v1/generations",
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                 json={
-                    "prompt": f"educational, clean, academic: {prompt}",
+                    "prompt": f"{prompt}, educational illustration, clean academic style",
                     "width": min(width, 1024),
                     "height": min(height, 1024),
                     "num_images": 1,

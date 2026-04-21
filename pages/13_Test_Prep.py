@@ -58,11 +58,37 @@ if st.session_state.tp_session_id is None:
         st.session_state.tp_answers = []
         st.session_state.tp_finished = False
         st.session_state.tp_start_time = time.time() if timed else None
-        # Placeholder question bank for prototype flow only.
+        # Try LLM-generated questions first, fall back to placeholders
+        _llm_questions = []
+        try:
+            from llm.providers import simple_complete, cfg_from_settings
+            import json as _json
+            _cfg = cfg_from_settings()
+            _prompt = (
+                f"Generate {NUM_QUESTIONS} multiple-choice practice questions for the "
+                f"'{sel_test}' exam"
+                + (f", section '{sel_section}'" if sel_section else "")
+                + ".\nFor EACH question output JSON with keys: "
+                "\"question\", \"choices\" (array of 4 strings), \"correct_answer\" (the correct choice string).\n"
+                "Output ONLY a JSON array of question objects. No markdown."
+            )
+            _raw = simple_complete(_cfg, _prompt)
+            _parsed = _json.loads(_raw) if isinstance(_raw, str) else _raw
+            if isinstance(_parsed, list) and len(_parsed) >= 1:
+                _llm_questions = _parsed[:NUM_QUESTIONS]
+        except Exception:
+            pass
+
         for i in range(NUM_QUESTIONS):
-            q_text = f"{sel_test} {sel_section or ''} practice question {i+1}"
-            choices = ["A", "B", "C", "D"]
-            correct = "A"
+            if i < len(_llm_questions):
+                lq = _llm_questions[i]
+                q_text = str(lq.get("question", f"Question {i+1}"))
+                choices = lq.get("choices", ["A", "B", "C", "D"])
+                correct = str(lq.get("correct_answer", choices[0]))
+            else:
+                q_text = f"{sel_test} {sel_section or ''} practice question {i+1}"
+                choices = ["A", "B", "C", "D"]
+                correct = "A"
             qid = test_prep.add_question(sid, sel_test, sel_section or "", q_text,
                                          choices, correct, 5, i, tx)
             st.session_state.tp_questions.append({

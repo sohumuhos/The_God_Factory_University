@@ -35,8 +35,8 @@ class DeepAIProvider(ImageProvider):
         _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
         full_prompt = (
-            "educational motion design, crisp typography, technical diagrams, "
-            f"soft volumetric lighting, {prompt}"
+            f"{prompt}, educational illustration, clean layout, "
+            "soft volumetric lighting, high detail"
         )
         body = urllib.parse.urlencode({"text": full_prompt}).encode("utf-8")
 

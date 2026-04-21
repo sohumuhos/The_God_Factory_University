@@ -30,7 +30,7 @@ class ProdiaProvider(ImageProvider):
                 "https://api.prodia.com/v1/sdxl/generate",
                 headers={"X-Prodia-Key": key, "Content-Type": "application/json"},
                 json={
-                    "prompt": f"educational, clean, academic: {prompt}",
+                    "prompt": f"{prompt}, educational illustration, clean academic style",
                     "model": "sdxl",
                     "width": min(width, 1024),
                     "height": min(height, 1024),

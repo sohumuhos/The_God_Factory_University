@@ -36,8 +36,8 @@ class StabilityProvider(ImageProvider):
         # Stability API uses multipart form data
         boundary = "----GFUBoundary"
         full_prompt = (
-            "educational motion design, crisp typography, technical diagrams, "
-            f"soft volumetric lighting, {prompt}"
+            f"{prompt}, educational illustration, clean layout, "
+            "soft volumetric lighting, high detail"
         )
         neg = "blurry text, logo, watermark, low contrast, nsfw"
 

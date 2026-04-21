@@ -35,8 +35,8 @@ class GitHubModelsProvider(ImageProvider):
         payload = json.dumps({
             "model": "dall-e-3",
             "prompt": (
-                "educational motion design, crisp typography, "
-                f"technical diagrams, soft volumetric lighting, {prompt}"
+                f"{prompt}, educational illustration, clean layout, "
+                "soft volumetric lighting, high detail"
             ),
             "size": "1024x1024",
             "n": 1,

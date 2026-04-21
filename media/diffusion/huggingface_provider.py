@@ -34,8 +34,8 @@ class HuggingFaceProvider(ImageProvider):
         _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         payload = json.dumps({
             "inputs": (
-                "educational motion design, crisp typography, "
-                f"technical diagrams, soft volumetric lighting, {prompt}"
+                f"{prompt}, educational illustration, clean layout, "
+                "soft volumetric lighting, high detail"
             ),
             "parameters": {"width": min(width, 1024), "height": min(height, 1024)},
         }).encode("utf-8")

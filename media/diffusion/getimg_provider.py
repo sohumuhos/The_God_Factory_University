@@ -32,7 +32,7 @@ class GetimgProvider(ImageProvider):
                     "Content-Type": "application/json",
                 },
                 json={
-                    "prompt": f"educational, clean, academic: {prompt}",
+                    "prompt": f"{prompt}, educational illustration, clean academic style",
                     "width": min(width, 1024),
                     "height": min(height, 1024),
                     "steps": 30,

@@ -34,7 +34,7 @@ class LimeWireProvider(ImageProvider):
                     "Accept": "application/json",
                 },
                 json={
-                    "prompt": f"educational, clean, academic: {prompt}",
+                    "prompt": f"{prompt}, educational illustration, clean academic style",
                     "aspect_ratio": "16:9",
                 },
                 timeout=60,

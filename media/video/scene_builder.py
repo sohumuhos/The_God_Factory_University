@@ -76,60 +76,81 @@ def _build_narration_script(lecture: dict, scene: dict, scene_index: int, total_
     arc_type = scene.get("block_id", "").split("_")[-1] if "_" in scene.get("block_id", "") else ""
     narrative_arc = lecture.get("video_recipe", {}).get("narrative_arc", [])
 
+    # If the narration_prompt is already rich (LLM-enriched), use it directly
+    # with only minimal framing. Enriched narration is typically 50+ words.
+    narration_is_enriched = len(narration_prompt.split()) >= 50
+
     parts: list[str] = []
 
-    # Opening — adapt based on position in lecture
-    if scene_index == 0:
-        if course_title:
-            parts.append(f"Welcome to {title}, part of {course_title}.")
-        else:
-            parts.append(f"Welcome to today's lecture on {title}.")
-        if module_title:
-            parts.append(f"This lesson is part of our module on {module_title}.")
-        if objectives:
-            parts.append("By the end of this session, you should be able to:")
-            for obj in objectives:
-                parts.append(f"  {obj}.")
-    elif scene_index == total_scenes - 1:
-        parts.append(f"Let's wrap up our discussion of {title}.")
-    else:
-        parts.append(f"Continuing our exploration of {title}.")
-
-    # Core content — the narration prompt is the main directive
-    if narration_prompt:
+    if narration_is_enriched:
+        # Enriched narration: use it as the core, add only a brief intro for
+        # the first scene and a brief recap for the last scene.
+        if scene_index == 0:
+            if course_title:
+                parts.append(f"Welcome to {title}, part of {course_title}.")
+            else:
+                parts.append(f"Welcome to today's lecture on {title}.")
         parts.append(narration_prompt)
-
-    # NOTE: visual_prompt is for diffusion models only — never narrate it.
-
-    # Expand with terminology with actual definitions for non-summary scenes
-    if scene_index < total_scenes - 1 and terms:
-        scene_terms = terms[scene_index * 3:(scene_index + 1) * 3] or terms[:3]
-        if scene_terms:
-            parts.append("Let's break down some key concepts you need to know.")
-            for term in scene_terms:
-                parts.append(
-                    f"First, let's talk about {term}. "
-                    f"In the context of {title}, {term} refers to a core concept "
-                    f"that you will encounter repeatedly. Pay special attention to how "
-                    f"{term} connects to the other topics we cover in this lecture."
-                )
-
-    # Summary/closing for last scene
-    if scene_index == total_scenes - 1:
-        if terms:
+        if scene_index == total_scenes - 1 and terms:
             parts.append(
                 f"To recap, the key terms we've covered include: "
                 f"{', '.join(terms[:8])}."
             )
-        if objectives:
-            parts.append("Remember our learning objectives:")
-            for obj in objectives:
-                parts.append(f"  {obj}.")
-        parts.append(
-            "Take a moment to review these concepts. Practice is the best way "
-            "to reinforce what you've learned. In the next lecture, we'll build "
-            "on these ideas."
-        )
+    else:
+        # Non-enriched (short) narration: expand with objectives, terms, etc.
+
+        # Opening — adapt based on position in lecture
+        if scene_index == 0:
+            if course_title:
+                parts.append(f"Welcome to {title}, part of {course_title}.")
+            else:
+                parts.append(f"Welcome to today's lecture on {title}.")
+            if module_title:
+                parts.append(f"This lesson is part of our module on {module_title}.")
+            if objectives:
+                parts.append("By the end of this session, you should be able to:")
+                for obj in objectives:
+                    parts.append(f"  {obj}.")
+        elif scene_index == total_scenes - 1:
+            parts.append(f"Let's wrap up our discussion of {title}.")
+        else:
+            parts.append(f"Continuing our exploration of {title}.")
+
+        # Core content — the narration prompt is the main directive
+        if narration_prompt:
+            parts.append(narration_prompt)
+
+        # NOTE: visual_prompt is for diffusion models only — never narrate it.
+
+        # Expand with terminology with actual definitions for non-summary scenes
+        if scene_index < total_scenes - 1 and terms:
+            scene_terms = terms[scene_index * 3:(scene_index + 1) * 3] or terms[:3]
+            if scene_terms:
+                parts.append("Let's break down some key concepts you need to know.")
+                for term in scene_terms:
+                    parts.append(
+                        f"First, let's talk about {term}. "
+                        f"In the context of {title}, {term} refers to a core concept "
+                        f"that you will encounter repeatedly. Pay special attention to how "
+                        f"{term} connects to the other topics we cover in this lecture."
+                    )
+
+        # Summary/closing for last scene
+        if scene_index == total_scenes - 1:
+            if terms:
+                parts.append(
+                    f"To recap, the key terms we've covered include: "
+                    f"{', '.join(terms[:8])}."
+                )
+            if objectives:
+                parts.append("Remember our learning objectives:")
+                for obj in objectives:
+                    parts.append(f"  {obj}.")
+            parts.append(
+                "Take a moment to review these concepts. Practice is the best way "
+                "to reinforce what you've learned. In the next lecture, we'll build "
+                "on these ideas."
+            )
 
     script = " ".join(parts)
 

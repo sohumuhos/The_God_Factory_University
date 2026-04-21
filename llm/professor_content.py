@@ -237,7 +237,19 @@ Output ONLY valid JSON array of scene_blocks."""
         cfg = self._cfg()
         result = simple_complete(cfg, prompt)
         save_llm_generated(result, "enhanced_prompts")
-        return self._wrap(result, cfg.provider, expect_json=True)
+        wrapped = self._wrap(result, cfg.provider, expect_json=True)
+        # Persist enhanced prompts back to the lecture in the database
+        try:
+            parsed = json.loads(result) if isinstance(result, str) else result
+            if isinstance(parsed, list) and parsed:
+                lecture_data.setdefault("video_recipe", {})["scene_blocks"] = parsed
+                lid = lecture_data.get("lecture_id", lecture_data.get("id", ""))
+                if lid:
+                    from core.database import update_lecture_data
+                    update_lecture_data(lid, lecture_data)
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass  # LLM returned non-JSON; keep logged version only
+        return wrapped
 
     def concept_map(self, lecture_data: dict):
         prompt = f"""Create a concept map for: "{lecture_data.get('title', '')}"

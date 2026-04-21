@@ -53,8 +53,8 @@ def _text_to_image_workflow(prompt: str, width: int, height: int) -> dict:
                 "class_type": "CLIPTextEncode",
                 "inputs": {
                     "text": (
-                        "educational motion design, crisp typography, "
-                        f"technical diagrams, soft volumetric lighting, {prompt}"
+                        f"{prompt}, educational illustration, clean layout, "
+                        "soft volumetric lighting, high detail"
                     ),
                     "clip": ["4", 1],
                 },

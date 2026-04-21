@@ -69,13 +69,41 @@ if st.session_state.pt_test_id is None:
         st.session_state.pt_current_q = 0
         st.session_state.pt_answers = []
         st.session_state.pt_finished = False
-        # Placeholder question bank for prototype flow only.
+        # Try LLM-generated placement questions, fall back to placeholders
         _difficulties = [3, 4, 5, 5, 6, 6, 7, 7, 8, 9]
+        _llm_questions = []
+        try:
+            from llm.providers import simple_complete, cfg_from_settings
+            import json as _json
+            _cfg = cfg_from_settings()
+            _prompt = (
+                f"Generate {NUM_QUESTIONS} multiple-choice placement exam questions for "
+                f"'{subject_id}'. Each question should have a difficulty from 1-10.\n"
+                f"Target difficulties: {_difficulties}\n"
+                "For EACH question output JSON with keys: "
+                "\"question\", \"choices\" (array of 4 strings), \"correct_answer\" (the correct choice string), "
+                "\"difficulty\" (integer 1-10).\n"
+                "Output ONLY a JSON array. No markdown."
+            )
+            _raw = simple_complete(_cfg, _prompt)
+            _parsed = _json.loads(_raw) if isinstance(_raw, str) else _raw
+            if isinstance(_parsed, list) and len(_parsed) >= 1:
+                _llm_questions = _parsed[:NUM_QUESTIONS]
+        except Exception:
+            pass
+
         for i in range(NUM_QUESTIONS):
             diff = _difficulties[i]
-            q_text = f"Placement question {i+1} for {subject_id} (difficulty {diff}/10)"
-            choices = ["Option A", "Option B", "Option C", "Option D"]
-            correct = "Option A"
+            if i < len(_llm_questions):
+                lq = _llm_questions[i]
+                q_text = str(lq.get("question", f"Placement question {i+1}"))
+                choices = lq.get("choices", ["Option A", "Option B", "Option C", "Option D"])
+                correct = str(lq.get("correct_answer", choices[0]))
+                diff = int(lq.get("difficulty", diff))
+            else:
+                q_text = f"Placement question {i+1} for {subject_id} (difficulty {diff}/10)"
+                choices = ["Option A", "Option B", "Option C", "Option D"]
+                correct = "Option A"
             qid = placement.add_question(test_id, q_text, choices, correct, diff, i, tx)
             st.session_state.pt_questions.append({
                 "id": qid, "question": q_text, "choices": choices,
@@ -98,7 +126,14 @@ elif not st.session_state.pt_finished:
             correct = answer == q["correct_answer"]
             placement.record_answer(st.session_state.pt_test_id, q["id"], answer, correct, 0, tx)
             st.session_state.pt_answers.append({"correct": correct, "answer": answer})
-            st.session_state.pt_current_q = qi + 1
+
+            # Adaptive difficulty: adjust the next question's difficulty
+            next_qi = qi + 1
+            if next_qi < len(questions):
+                adaptive_diff = placement.get_adaptive_difficulty(st.session_state.pt_test_id, tx)
+                questions[next_qi]["difficulty"] = adaptive_diff
+
+            st.session_state.pt_current_q = next_qi
             st.rerun()
     else:
         # All questions answered

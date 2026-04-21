@@ -169,12 +169,13 @@ with col_b:
     resolution = st.selectbox("Resolution", ["960x540", "1280x720", "1920x1080"], index=0)
 res_w, res_h = map(int, resolution.split("x"))
 
-if "render_state" not in st.session_state:
-    st.session_state["render_state"] = "idle"
-    st.session_state["render_log"] = []
-    st.session_state["render_progress"] = 0
-
 START_KEY = "batch_start"
+
+# Thread-safe shared state for the background render thread.
+# st.session_state is NOT safe to write from non-main threads.
+if "_render_shared" not in st.session_state:
+    st.session_state["_render_shared"] = {"progress": 0, "log": [], "state": "idle", "abort": False}
+_shared = st.session_state["_render_shared"]
 
 def do_batch_render(queue_snapshot, fps, res_w, res_h, do_enrich=False):
     from media.video.encoder import render_lecture
@@ -182,6 +183,11 @@ def do_batch_render(queue_snapshot, fps, res_w, res_h, do_enrich=False):
     total = len(queue_snapshot)
 
     for idx, item in enumerate(queue_snapshot):
+        # Check abort flag
+        if _shared.get("abort"):
+            log.append("[ABORT] Render aborted by user.")
+            break
+
         lec_row = item["lecture"]
         lec_data = json.loads(lec_row["data"] or "{}")
         lec_data.setdefault("lecture_id", lec_row["id"])
@@ -229,45 +235,48 @@ def do_batch_render(queue_snapshot, fps, res_w, res_h, do_enrich=False):
             log.append(f"[OK]  {lec_row['title']}")
         except Exception as e:
             log.append(f"[ERR] {lec_row['title']}: {e}")
-        st.session_state["render_progress"] = (idx + 1) / total
-        st.session_state["render_log"] = log[:]
-    st.session_state["render_state"] = "done"
-    st.session_state["render_log"] = log
+        _shared["progress"] = (idx + 1) / total
+        _shared["log"] = log[:]
+    _shared["state"] = "done"
+    _shared["log"] = log
 
-if st.session_state["render_state"] == "idle":
+if _shared["state"] == "idle":
     if st.button(f"Start Batch Render ({len(queue)} lectures)", use_container_width=True, type="primary"):
         if not queue:
             st.warning("Select at least one lecture.")
         else:
-            st.session_state["render_state"] = "running"
-            st.session_state["render_log"] = []
-            st.session_state["render_progress"] = 0
+            _shared["state"] = "running"
+            _shared["log"] = []
+            _shared["progress"] = 0
+            _shared["abort"] = False
             t = threading.Thread(target=do_batch_render, args=(queue, fps, res_w, res_h, enrich_before), daemon=True)
             t.start()
             play_sfx("collect")
             st.rerun()
 
-if st.session_state["render_state"] == "running":
-    prog = st.session_state["render_progress"]
+if _shared["state"] == "running":
+    prog = _shared["progress"]
     st.progress(prog, text=f"Rendering... {int(prog*100)}%")
-    log_text = "\n".join(st.session_state["render_log"][-20:])
+    log_text = "\n".join(_shared["log"][-20:])
     if log_text:
         st.code(log_text, language="bash")
     if st.button("Abort", type="secondary"):
-        st.session_state["render_state"] = "idle"
+        _shared["abort"] = True
+        _shared["state"] = "idle"
         st.rerun()
     time.sleep(1)
     st.rerun()
 
-if st.session_state["render_state"] == "done":
+if _shared["state"] == "done":
     play_sfx("level_up")
     st.success("Batch render complete.")
-    log_text = "\n".join(st.session_state["render_log"])
+    log_text = "\n".join(_shared["log"])
     st.code(log_text, language="bash")
     if st.button("Reset", use_container_width=True):
-        st.session_state["render_state"] = "idle"
-        st.session_state["render_log"] = []
-        st.session_state["render_progress"] = 0
+        _shared["state"] = "idle"
+        _shared["log"] = []
+        _shared["progress"] = 0
+        _shared["abort"] = False
         st.rerun()
 
 # ─── Visual Effects (applied automatically) ──────────────────────────────────
