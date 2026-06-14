@@ -55,15 +55,21 @@ BINAURAL_PRESETS = {
 # ─── TTS ──────────────────────────────────────────────────────────────────────
 
 def synth_tts(text: str, out_path: Path, voice_id: str = "en-US-AriaNeural", rate: str = "+0%", pitch: str = "+0Hz") -> Path:
-    """Synthesize speech. Uses multi-engine cycling: local → cloud → offline."""
+    """Synthesize speech. Uses multi-engine cycling: local → cloud → offline.
+
+    The engine actually used is logged, so a robotic-sounding result is easy to
+    diagnose: a ``tts_engine_used=pyttsx3`` line means every natural-voice engine
+    was unavailable (no local neural model installed AND no internet for Edge-TTS
+    AND no ElevenLabs key)."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         from media.tts_providers import synth_with_cycling
         from core.database import get_setting
         preferred = get_setting("tts_engine", "")
-        ok, _engine = synth_with_cycling(text, out_path, voice_id, rate, pitch,
-                                         preferred_engine=preferred)
+        ok, engine = synth_with_cycling(text, out_path, voice_id, rate, pitch,
+                                        preferred_engine=preferred)
         if ok and out_path.exists() and out_path.stat().st_size > 500:
+            _log_tts_engine(engine)
             return out_path
     except Exception:
         pass
@@ -71,11 +77,31 @@ def synth_tts(text: str, out_path: Path, voice_id: str = "en-US-AriaNeural", rat
     try:
         _synth_edge_tts(text, out_path, voice_id, rate, pitch)
         if out_path.exists() and out_path.stat().st_size > 1000:
+            _log_tts_engine("edge_tts")
             return out_path
     except Exception:
         pass
-    _synth_pyttsx3(text, out_path)
+    _synth_pyttsx3(text, out_path, rate)
+    _log_tts_engine("pyttsx3")
     return out_path
+
+
+def _log_tts_engine(engine: str) -> None:
+    """Record which TTS engine produced the audio (helps diagnose robotic output)."""
+    try:
+        from core.logger import log_event
+        if engine in ("pyttsx3", "none", ""):
+            log_event(
+                "TTS fell back to the offline robotic voice. For a natural voice "
+                "install Edge-TTS (`pip install edge-tts`) and ensure internet, "
+                "add an ElevenLabs API key, or install Kokoro (local neural).",
+                category="audio", level="WARNING", tts_engine_used=engine or "none",
+            )
+        else:
+            log_event(f"TTS synthesized via {engine}", category="audio",
+                      tts_engine_used=engine)
+    except Exception:
+        pass
 
 
 def _synth_edge_tts(text: str, out_path: Path, voice: str, rate: str, pitch: str) -> None:
@@ -97,10 +123,18 @@ def _synth_edge_tts(text: str, out_path: Path, voice: str, rate: str, pitch: str
         asyncio.run(_run())
 
 
-def _synth_pyttsx3(text: str, out_path: Path) -> None:
+def _synth_pyttsx3(text: str, out_path: Path, rate: str = "+0%") -> None:
     import pyttsx3
     engine = pyttsx3.init()
-    engine.setProperty("rate", 165)
+    # Honour the configured rate (edge-TTS uses "+20%"-style strings); map the
+    # percentage onto pyttsx3's words-per-minute around a 165 wpm baseline.
+    base_wpm = 165
+    try:
+        pct = int(str(rate).replace("%", "").replace("+", "").strip() or "0")
+        wpm = int(base_wpm * (1 + pct / 100.0))
+    except Exception:
+        wpm = base_wpm
+    engine.setProperty("rate", max(80, min(300, wpm)))
     engine.save_to_file(text, str(out_path))
     engine.runAndWait()
 

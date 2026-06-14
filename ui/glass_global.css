@@ -1,0 +1,1043 @@
+/* ============================================================================
+   FROSTED OBSIDIAN — definitive glass theme for The God Factory University
+   Streamlit 1.44 | injected as ONE <style> block via st.markdown(unsafe_allow_html=True)
+   Base: "Subtle Pro" token system + webkit-pairing discipline.
+   Grafted: Performance-First GPU stance (blur capped to a small bounded surface
+   set) + verified stAlertContent* alert selectors + reduced-transparency fallback;
+   Vivid Refraction hover-gated button sheen + per-accent buttons + stJson rule.
+   Palette: obsidian #060812 | panel #0e1230 | sidebar #090e20
+            cyan #00d4ff | gold #ffd700 | silver #b8b8d0 | dim #606080
+            crimson #e04040 | green #40dc80 | violet #6a5acd
+   Font: 'Share Tech Mono', monospace (kept everywhere).
+   GPU POLICY: backdrop-filter is confined to bounded / transient surfaces only —
+   sidebar, main block, metric, expander body, tab-panel, status, chat bubble,
+   toast, dropdown/popover/listbox, dropzone, json, dataframe wrapper, code BLOCK.
+   High-count or repaint-heavy surfaces (every input, every inline code, buttons,
+   alerts, progress, columns) use translucent rgba() fills + hairline borders only.
+   ============================================================================ */
+
+/* NOTE: the Share Tech Mono @import is injected FIRST by build_theme_css(), not
+   here — a CSS @import is only valid before any style rule, and glass_bg.css
+   (concatenated ahead of this file) emits rules, which would invalidate it. */
+
+/* ── Design tokens ───────────────────────────────────────────────────────── */
+:root {
+  --gf-obsidian:      #060812;
+  --gf-panel:         #0e1230;
+  --gf-sidebar:       #090e20;
+  --gf-cyan:          #00d4ff;
+  --gf-gold:          #ffd700;
+  --gf-silver:        #b8b8d0;
+  --gf-dim:           #606080;
+  --gf-crimson:       #e04040;
+  --gf-green:         #40dc80;
+  --gf-violet:        #6a5acd;
+  /* AA-safe label tone (>=4.5:1 over the panel) — fixes the metric/tab contrast must_fix */
+  --gf-label:         #8a8aae;
+
+  /* Glass fills */
+  --glass-panel:      rgba(14, 18, 48, 0.82);  /* main block — >=0.80 so mesh never bleeds through text */
+  --glass-soft:       rgba(14, 18, 48, 0.62);
+  --glass-card:       rgba(14, 18, 48, 0.70);
+  --glass-deep:       rgba(9, 14, 32, 0.80);
+  --glass-pop:        rgba(9, 14, 32, 0.90);
+  --glass-input:      rgba(14, 18, 48, 0.70);
+
+  /* Hairline specular edges */
+  --hairline:         1px solid rgba(255, 255, 255, 0.10);
+  --hairline-cyan:    1px solid rgba(0, 212, 255, 0.27);
+  --spec-inset:       inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --spec-inset-soft:  inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --drop-soft:        0 8px 32px rgba(0, 0, 0, 0.45);
+  --drop-pop:         0 12px 40px rgba(0, 0, 0, 0.55);
+
+  /* Blur recipes (every use is paired with -webkit-backdrop-filter inline) */
+  --blur-panel:       blur(12px) saturate(1.10);
+  --blur-sidebar:     blur(11px) saturate(1.05);
+  --blur-pop:         blur(14px) saturate(1.12);
+  --blur-light:       blur(8px) saturate(1.06);
+
+  --radius-lg:        14px;
+  --radius-md:        12px;
+  --radius-sm:        10px;
+  --ease:             0.20s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* ── Reset & global typography (monospace everywhere) ────────────────────── */
+* { box-sizing: border-box; }
+
+html, body, [class*="css"], [data-testid="stAppViewContainer"] *,
+button, input, textarea, select, optgroup {
+  font-family: 'Share Tech Mono', 'Courier New', monospace !important;
+}
+html, body {
+  background-color: var(--gf-obsidian) !important;
+  color: var(--gf-silver) !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.stApp { background: transparent !important; color: var(--gf-silver) !important; }
+
+/* Headings — element selectors are the correct, reliable target in 1.44.
+   (st.title/header/subheader render plain h1/h2/h3; no stTitle/stSubheader testid.) */
+h1, h2, h3,
+[data-testid="stHeading"] h1, [data-testid="stHeading"] h2, [data-testid="stHeading"] h3 {
+  color: var(--gf-cyan) !important;
+  letter-spacing: 1.5px !important;
+  text-shadow: 0 0 14px rgba(0, 212, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+h4, h5, h6,
+[data-testid="stHeading"] h4, [data-testid="stHeading"] h5, [data-testid="stHeading"] h6 {
+  color: var(--gf-gold) !important;
+  letter-spacing: 1px !important;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+h1, [data-testid="stHeading"] h1 { font-size: 2.4rem !important; font-weight: bold !important; }
+h2, [data-testid="stHeading"] h2 { font-size: 1.8rem !important; }
+h3, [data-testid="stHeading"] h3 { font-size: 1.3rem !important; }
+
+p, li, label, span, dd, dt, td, th { color: var(--gf-silver); }
+strong, b { color: #d8d8ee; }
+a, a:visited { color: var(--gf-cyan) !important; text-decoration: none !important; }
+a:hover { text-decoration: underline !important; text-shadow: 0 0 8px rgba(0, 212, 255, 0.45) !important; }
+::selection { background: rgba(0, 212, 255, 0.28); color: #ffffff; }
+
+/* ── Functional overrides — stop the blanket monospace/silver rules above from
+   breaking Streamlit's own rendering ──────────────────────────────────────── */
+/* Material icon ligatures (expander chevrons, menu icons, etc.) require the
+   Material Symbols font. The global monospace rule clobbers it, so the ligature
+   renders as raw text ("keyboard_arrow_right") that overlaps the label. Restore. */
+[data-testid="stIconMaterial"], .material-icons,
+span[class*="material-symbols"], span[class*="material-icons"] {
+  font-family: 'Material Symbols Rounded','Material Symbols Outlined','Material Icons' !important;
+}
+/* Code-block text + its syntax-token spans: the broad `span { color:silver }`
+   rule bleeds onto ASCII art / XP bars, washing them gray. Force on-brand cyan. */
+[data-testid="stCode"] code, [data-testid="stCode"] code span,
+pre code, pre code span { color: #6fe3ff !important; }
+
+/* Streamlit's own fixed top chrome bar — this is the REAL stHeader; never give
+   it heading text styling. Just make it read through to the mesh. */
+header[data-testid="stHeader"],
+[data-testid="stHeader"] {
+  background: rgba(6, 8, 18, 0.35) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+  backdrop-filter: blur(8px) saturate(1.05);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.12) !important;
+}
+[data-testid="stToolbar"] { background: transparent !important; }
+[data-testid="stDecoration"] { display: none !important; }
+
+/* ── Main content block — the primary frosted panel ──────────────────────── */
+/* Real selectors in 1.44: testid stMainBlockContainer + legacy .block-container
+   CLASS. There is NO [data-testid="block-container"]. */
+[data-testid="stMainBlockContainer"],
+.block-container,
+.main .block-container {
+  background: var(--glass-panel) !important;        /* >=0.80 fill: neutral over mesh */
+  -webkit-backdrop-filter: var(--blur-panel);
+  backdrop-filter: var(--blur-panel);
+  border: var(--hairline) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--spec-inset), var(--drop-soft) !important;
+  padding: 2.2rem 2.4rem 3rem !important;
+  margin-top: 0.6rem !important;
+}
+
+/* ── Sidebar — deep glass slab ───────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+  background: var(--glass-deep) !important;
+  -webkit-backdrop-filter: var(--blur-sidebar);
+  backdrop-filter: var(--blur-sidebar);
+  border-right: 1px solid rgba(0, 212, 255, 0.20) !important;
+  box-shadow: var(--spec-inset-soft), 4px 0 28px rgba(0, 0, 0, 0.40) !important;
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+[data-testid="stSidebar"] > div { background: transparent !important; }
+[data-testid="stSidebar"] h1 { font-size: 1.1rem !important; }
+[data-testid="stSidebar"] * { color: var(--gf-silver); }
+[data-testid="stSidebarNav"] a {
+  color: var(--gf-silver) !important;
+  border-radius: 8px !important;
+  transition: background var(--ease), color var(--ease) !important;
+}
+[data-testid="stSidebarNav"] a:hover {
+  background: rgba(0, 212, 255, 0.10) !important;
+  color: var(--gf-cyan) !important;
+  text-decoration: none;
+}
+[data-testid="stSidebarNav"] a[aria-current="page"] {
+  background: rgba(0, 212, 255, 0.14) !important;
+  color: var(--gf-cyan) !important;
+}
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stExpandSidebarButton"],
+[data-testid="stExpandSidebarButton"] button,
+[data-testid="collapsedControl"],
+[data-testid="collapsedControl"] button {
+  background: rgba(0, 212, 255, 0.10) !important;
+  color: var(--gf-cyan) !important;
+  border: none !important;
+  transition: background var(--ease), box-shadow var(--ease) !important;
+}
+[data-testid="stSidebarCollapseButton"]:hover,
+[data-testid="stSidebarCollapseButton"] button:hover,
+[data-testid="stExpandSidebarButton"]:hover,
+[data-testid="collapsedControl"]:hover {
+  background: rgba(0, 212, 255, 0.20) !important;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.30) !important;
+}
+
+/* ── Sheen sweep keyframe (hover-gated only = no idle cost) ───────────────── */
+@keyframes gf-sheen {
+  0%   { transform: translateX(-130%) skewX(-22deg); opacity: 0; }
+  18%  { opacity: 0.55; }
+  60%  { opacity: 0.25; }
+  100% { transform: translateX(230%) skewX(-22deg); opacity: 0; }
+}
+@keyframes gf-spin { to { transform: rotate(360deg); } }
+
+/* ── Buttons — translucent fill (NO blur: high count) + hover sheen ──────── */
+div.stButton > button,
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-primary"],
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button {
+  position: relative !important;
+  overflow: hidden !important;
+  background: rgba(14, 18, 48, 0.85) !important;
+  color: var(--gf-cyan) !important;
+  border: 1px solid rgba(0, 212, 255, 0.53) !important;
+  border-radius: var(--radius-md) !important;
+  letter-spacing: 1px !important;
+  font-weight: bold !important;
+  box-shadow: var(--spec-inset-soft), 0 2px 10px rgba(0, 0, 0, 0.30) !important;
+  transition: background var(--ease), border-color var(--ease),
+              color var(--ease), box-shadow var(--ease), transform var(--ease) !important;
+}
+/* Hover-gated specular sweep (cheap: only animates on :hover) */
+div.stButton > button::after,
+[data-testid="stFormSubmitButton"] button::after,
+[data-testid="stDownloadButton"] button::after {
+  content: ""; position: absolute; top: -50%; left: 0;
+  width: 45%; height: 200%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.40), transparent);
+  filter: blur(3px);
+  transform: translateX(-130%) skewX(-22deg);
+  pointer-events: none;
+}
+div.stButton > button:hover::after,
+[data-testid="stFormSubmitButton"] button:hover::after,
+[data-testid="stDownloadButton"] button:hover::after {
+  animation: gf-sheen 0.9s ease forwards;
+}
+div.stButton > button:hover,
+[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stFormSubmitButton"] button:hover {
+  background: rgba(0, 212, 255, 0.15) !important;
+  border-color: var(--gf-cyan) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--spec-inset), 0 4px 18px rgba(0, 212, 255, 0.28) !important;
+}
+div.stButton > button:active,
+[data-testid="stBaseButton-secondary"]:active,
+[data-testid="stFormSubmitButton"] button:active {
+  background: rgba(0, 212, 255, 0.22) !important;
+  transform: translateY(0) scale(0.99) !important;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}
+div.stButton > button:focus-visible,
+[data-testid="stFormSubmitButton"] button:focus-visible {
+  outline: 2px solid rgba(0, 212, 255, 0.60) !important;
+  outline-offset: 2px !important;
+}
+/* Primary button — gold identity */
+[data-testid="stBaseButton-primary"] {
+  border-color: rgba(255, 215, 0, 0.55) !important;
+  color: var(--gf-gold) !important;
+}
+[data-testid="stBaseButton-primary"]:hover {
+  background: rgba(255, 215, 0, 0.16) !important;
+  border-color: var(--gf-gold) !important;
+  color: #fff0a8 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--spec-inset), 0 4px 18px rgba(255, 215, 0, 0.28) !important;
+}
+/* Download button — green identity */
+[data-testid="stDownloadButton"] button {
+  border-color: rgba(64, 220, 128, 0.53) !important;
+  color: var(--gf-green) !important;
+}
+[data-testid="stDownloadButton"] button:hover {
+  background: rgba(64, 220, 128, 0.15) !important;
+  border-color: var(--gf-green) !important;
+  color: #d6ffe7 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--spec-inset), 0 4px 18px rgba(64, 220, 128, 0.28) !important;
+}
+
+/* ── Form container ──────────────────────────────────────────────────────── */
+[data-testid="stForm"] {
+  background: var(--glass-soft) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: var(--hairline) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--spec-inset-soft), var(--drop-soft) !important;
+  padding: 1.2rem 1.4rem !important;
+}
+
+/* ── Metric card — GLASS (bounded count) ─────────────────────────────────── */
+[data-testid="stMetric"] {
+  background: var(--glass-card) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: var(--hairline) !important;
+  border-top: 1px solid rgba(0, 212, 255, 0.30) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 16px 18px !important;
+  box-shadow: var(--spec-inset), var(--drop-soft) !important;
+}
+[data-testid="stMetricValue"] {
+  color: var(--gf-cyan) !important;
+  font-size: 1.8rem !important;
+  font-weight: bold !important;
+  text-shadow: 0 0 12px rgba(0, 212, 255, 0.25);
+}
+[data-testid="stMetricLabel"] {
+  color: var(--gf-label) !important;     /* AA-safe (>=4.5:1) — must_fix resolved */
+  font-size: 0.75rem !important;
+  letter-spacing: 1px;
+}
+[data-testid="stMetricDelta"] { color: var(--gf-gold) !important; font-size: 0.8rem !important; }
+[data-testid="stMetricDelta"] svg { fill: var(--gf-gold) !important; }
+
+/* ── Text / number / date / time / search inputs & textarea — fill, NO blur ─ */
+/* Scoped to widget wrappers — NO blanket `input, textarea { backdrop-filter }`. */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input,
+[data-testid="stSearchInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-baseweb="input"] input, [data-baseweb="base-input"] input {
+  background: var(--glass-input) !important;
+  color: #e4e4f4 !important;
+  border: 1px solid rgba(0, 212, 255, 0.27) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.30) !important;
+  transition: border-color var(--ease), box-shadow var(--ease) !important;
+}
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stNumberInput"] input::placeholder,
+[data-testid="stSearchInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+  color: var(--gf-label) !important; opacity: 1;   /* AA-safe (>=4.5:1) */
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stDateInput"] input:focus,
+[data-testid="stTimeInput"] input:focus,
+[data-testid="stSearchInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border-color: var(--gf-cyan) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.30),
+              0 0 0 2px rgba(0, 212, 255, 0.28) !important;
+  outline: none !important;
+}
+[data-testid="stTextArea"] textarea { resize: vertical; }
+/* Kill baseweb wrapper default backgrounds */
+[data-baseweb="input"], [data-baseweb="base-input"],
+[data-testid="stTextInput"] > div > div,
+[data-testid="stNumberInput"] > div,
+[data-testid="stDateInput"] > div > div,
+[data-testid="stTimeInput"] > div > div,
+[data-testid="stSearchInput"] > div {
+  background: transparent !important; border-radius: var(--radius-sm) !important;
+}
+/* Number-input steppers */
+[data-testid="stNumberInput"] button {
+  background: rgba(0, 212, 255, 0.10) !important;
+  color: var(--gf-cyan) !important;
+  border: none !important;
+  transition: background var(--ease) !important;
+}
+[data-testid="stNumberInput"] button:hover { background: rgba(0, 212, 255, 0.20) !important; }
+
+/* ── Selectbox / Multiselect — fill (closed box NO blur) ─────────────────── */
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stMultiSelect"] > div > div,
+[data-baseweb="select"] > div {
+  background: rgba(14, 18, 48, 0.75) !important;
+  border: 1px solid rgba(0, 212, 255, 0.27) !important;
+  border-radius: var(--radius-sm) !important;
+  color: #e4e4f4 !important;
+  box-shadow: var(--spec-inset-soft) !important;
+  transition: border-color var(--ease), box-shadow var(--ease) !important;
+}
+[data-testid="stSelectbox"] > div > div:focus-within,
+[data-testid="stMultiSelect"] > div > div:focus-within,
+[data-baseweb="select"] > div:focus-within {
+  border-color: var(--gf-cyan) !important;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.25) !important;
+}
+[data-baseweb="select"] svg { fill: var(--gf-cyan) !important; }
+[data-testid="stSelectbox"] [data-testid="stBaseButton-secondary"] {
+  background: transparent !important; border: none !important; color: var(--gf-cyan) !important;
+  transition: background var(--ease) !important;
+}
+[data-testid="stSelectbox"] [data-testid="stBaseButton-secondary"]:hover {
+  background: rgba(0, 212, 255, 0.15) !important;
+}
+/* Dropdown / popover listbox — GLASS (transient overlay) */
+[data-testid="stSelectboxVirtualDropdown"],
+[data-testid="selectbox-listbox"],
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="menu"],
+ul[role="listbox"] {
+  background: var(--glass-pop) !important;
+  -webkit-backdrop-filter: var(--blur-pop);
+  backdrop-filter: var(--blur-pop);
+  border: 1px solid rgba(0, 212, 255, 0.20) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--spec-inset), var(--drop-pop) !important;
+}
+[data-testid="selectbox-listbox"] [role="option"],
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="menu"] [role="option"],
+ul[role="listbox"] li {
+  color: var(--gf-silver) !important;
+  background: transparent !important;
+  border-radius: 6px !important;
+  transition: background var(--ease), color var(--ease) !important;
+}
+[data-testid="selectbox-listbox"] [role="option"]:hover,
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="menu"] [role="option"]:hover,
+ul[role="listbox"] li:hover {
+  background: rgba(0, 212, 255, 0.12) !important; color: #aef3ff !important;
+}
+[data-testid="selectbox-listbox"] [role="option"][aria-selected="true"],
+[data-baseweb="popover"] [role="option"][aria-selected="true"],
+ul[role="listbox"] li[aria-selected="true"] {
+  background: rgba(0, 212, 255, 0.20) !important; color: var(--gf-cyan) !important;
+}
+/* Multiselect tag chips */
+[data-testid="stMultiSelect"] [data-baseweb="tag"],
+[data-baseweb="tag"] {
+  background: rgba(0, 212, 255, 0.20) !important;
+  border: 1px solid rgba(0, 212, 255, 0.40) !important;
+  border-radius: 6px !important;
+  color: var(--gf-cyan) !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span { color: var(--gf-cyan) !important; }
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg { fill: var(--gf-cyan) !important; }
+
+/* ── Slider — gradient thumb + fill, NO blur ─────────────────────────────── */
+[data-testid="stSlider"] [data-baseweb="slider"] { background: transparent !important; }
+[data-testid="stSlider"] [data-baseweb="slider"] > div > div {
+  background: rgba(6, 8, 18, 0.80) !important;
+  border: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-radius: 6px !important;
+}
+[data-testid="stSlider"] [data-baseweb="slider"] > div > div > div:nth-child(2) {
+  background: linear-gradient(90deg, var(--gf-cyan), var(--gf-gold)) !important;
+}
+[data-testid="stSlider"] [role="slider"] {
+  background: linear-gradient(135deg, var(--gf-cyan), var(--gf-gold)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.40) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.40), 0 0 10px rgba(0, 212, 255, 0.35) !important;
+  transition: box-shadow var(--ease) !important;
+}
+[data-testid="stSlider"] [role="slider"]:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.50), 0 0 16px rgba(0, 212, 255, 0.50) !important;
+}
+/* Belt-and-suspenders: legacy + new 1.44 tick/value testids */
+[data-testid="stSliderThumbValue"], [data-testid="stThumbValue"],
+[data-testid="stSliderTickBarMin"], [data-testid="stSliderTickBarMax"],
+[data-testid="stTickBarMin"], [data-testid="stTickBarMax"] {
+  color: var(--gf-label) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+}
+[data-testid="stSliderTickBar"], [data-testid="stTickBar"] { background: transparent !important; }
+
+/* ── Radio group ─────────────────────────────────────────────────────────── */
+[data-testid="stRadio"] [role="radiogroup"] { background: transparent !important; gap: 4px; }
+[data-testid="stRadio"] [role="radiogroup"] > label {
+  border-radius: 8px !important; padding: 2px 8px !important;
+  transition: background var(--ease) !important;
+}
+[data-testid="stRadio"] [role="radiogroup"] > label:hover { background: rgba(0, 212, 255, 0.10) !important; }
+[data-testid="stRadio"] [role="radio"] + div,
+[data-testid="stRadio"] label p { color: var(--gf-silver) !important; }
+[data-testid="stRadio"] [role="radio"][aria-checked="true"] + div,
+[data-testid="stRadio"] [role="radio"][aria-checked="true"] + div p { color: var(--gf-cyan) !important; }
+[data-testid="stRadio"] [role="radio"] {
+  background: rgba(14, 18, 48, 0.60) !important;
+  border: 1px solid rgba(0, 212, 255, 0.40) !important;
+}
+[data-testid="stRadio"] [role="radio"][aria-checked="true"] {
+  background: linear-gradient(135deg, var(--gf-cyan), #38b6e0) !important;
+  border-color: var(--gf-cyan) !important;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.40) !important;
+}
+
+/* ── Checkbox ────────────────────────────────────────────────────────────── */
+[data-testid="stCheckbox"] [role="checkbox"],
+[data-testid="stCheckbox"] [data-baseweb="checkbox"] span:first-child {
+  background: rgba(14, 18, 48, 0.60) !important;
+  border: 1px solid rgba(0, 212, 255, 0.40) !important;
+  border-radius: 4px !important;
+  transition: background var(--ease), border-color var(--ease) !important;
+}
+[data-testid="stCheckbox"] [role="checkbox"][aria-checked="true"],
+[data-testid="stCheckbox"] [data-baseweb="checkbox"] [aria-checked="true"] span:first-child {
+  background: linear-gradient(135deg, var(--gf-cyan), #38b6e0) !important;
+  border-color: var(--gf-cyan) !important;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.40) !important;
+}
+[data-testid="stCheckbox"] label, [data-testid="stCheckbox"] label p { color: var(--gf-silver) !important; }
+[data-testid="stCheckbox"] [aria-checked="true"] ~ div p { color: var(--gf-cyan) !important; }
+
+/* ── Toggle switch ───────────────────────────────────────────────────────── */
+/* st.toggle renders as stCheckbox containing a baseweb [role="switch"] — there is
+   NO stToggle testid in 1.44; the stCheckbox/[role="switch"] selectors carry it. */
+[data-testid="stCheckbox"] [role="switch"],
+[data-testid="stCheckbox"] [data-baseweb="checkbox"][role="switch"] {
+  background: rgba(96, 96, 128, 0.45) !important;
+  border: 1px solid rgba(96, 96, 128, 0.50) !important;
+  border-radius: 20px !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.40) !important;
+  transition: background var(--ease), border-color var(--ease) !important;
+}
+[data-testid="stCheckbox"] [role="switch"][aria-checked="true"] {
+  background: linear-gradient(90deg, var(--gf-cyan), var(--gf-green)) !important;
+  border-color: rgba(0, 212, 255, 0.60) !important;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+}
+/* Thumb (baseweb renders a child div inside the switch) */
+[data-testid="stCheckbox"] [role="switch"] > div,
+[data-testid="stCheckbox"] [role="switch"] div[aria-hidden] {
+  background: #eef2ff !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.40) !important;
+}
+
+/* ── Tabs — both stTab testid AND role="tab" for 1.44 robustness ─────────── */
+[data-testid="stTabs"] [role="tablist"],
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+  background: rgba(9, 14, 32, 0.50) !important;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  gap: 2px;
+}
+[data-testid="stTabs"] [role="tab"],
+[data-testid="stTabs"] [data-testid="stTab"],
+[data-testid="stTabs"] [data-baseweb="tab"] {
+  color: var(--gf-label) !important;       /* AA-safe inactive tab tone */
+  background: transparent !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 8px 8px 0 0 !important;
+  letter-spacing: 1px;
+  transition: color var(--ease), background var(--ease), border-color var(--ease) !important;
+}
+[data-testid="stTabs"] [role="tab"]:hover,
+[data-testid="stTabs"] [data-testid="stTab"]:hover,
+[data-testid="stTabs"] [data-baseweb="tab"]:hover {
+  color: var(--gf-silver) !important; background: rgba(0, 212, 255, 0.10) !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"],
+[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"],
+[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+  color: var(--gf-cyan) !important;
+  background: rgba(14, 18, 48, 0.50) !important;
+  border-bottom: 2px solid var(--gf-cyan) !important;
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.30) !important;
+}
+[data-testid="stTabs"] [data-baseweb="tab-highlight"] { background: var(--gf-cyan) !important; }
+/* Tab panel — GLASS content region */
+[data-testid="stTabs"] [role="tabpanel"] {
+  background: rgba(14, 18, 48, 0.50) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: 1px solid rgba(0, 212, 255, 0.12) !important;
+  border-top: none !important;
+  border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+  padding: 16px !important;
+}
+
+/* ── Expander — header fill + GLASS body ─────────────────────────────────── */
+[data-testid="stExpander"] {
+  background: transparent !important;
+  border: 1px solid rgba(0, 212, 255, 0.18) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  box-shadow: var(--spec-inset-soft) !important;
+}
+[data-testid="stExpander"] > details > summary,
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] > div > button {
+  background: rgba(14, 18, 48, 0.60) !important;
+  color: var(--gf-cyan) !important;
+  border-top: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.22) !important;
+  transition: background var(--ease), box-shadow var(--ease) !important;
+}
+[data-testid="stExpander"] summary:hover,
+[data-testid="stExpander"] > div > button:hover {
+  background: rgba(0, 212, 255, 0.12) !important;
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.20) !important;
+}
+[data-testid="stExpander"] summary svg, [data-testid="stExpander"] summary p {
+  color: var(--gf-cyan) !important; fill: var(--gf-cyan) !important;
+}
+[data-testid="stExpander"] [role="region"],
+[data-testid="stExpander"] > details > div,
+[data-testid="stExpanderDetails"] {
+  background: rgba(9, 14, 32, 0.70) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border-top: 1px solid rgba(0, 212, 255, 0.07) !important;
+  border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+  padding: 14px !important;
+}
+
+/* ── DataFrame / table — frosted WRAPPER, NOT per-cell (blur on cells is
+   unreliable across engines — must_fix). Table itself stays transparent. ── */
+[data-testid="stDataFrame"], [data-testid="stTable"] {
+  background: var(--glass-soft) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: 1px solid rgba(0, 212, 255, 0.20) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--spec-inset-soft), var(--drop-soft) !important;
+  overflow: hidden;
+}
+[data-testid="stDataFrame"] table, [data-testid="stTable"] table {
+  background: transparent !important; color: var(--gf-silver) !important;
+  border-collapse: collapse !important;
+}
+[data-testid="stDataFrame"] thead th,
+[data-testid="stDataFrame"] [role="columnheader"],
+[data-testid="stTable"] thead th {
+  background: rgba(9, 14, 32, 0.90) !important;   /* NO backdrop-filter on cells */
+  color: var(--gf-cyan) !important;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.30) !important;
+  letter-spacing: 1px;
+}
+[data-testid="stDataFrame"] tbody td,
+[data-testid="stDataFrame"] [role="gridcell"],
+[data-testid="stTable"] tbody td {
+  border-bottom: 1px solid rgba(0, 212, 255, 0.07) !important;
+  color: var(--gf-silver) !important;
+  background: transparent !important;
+}
+[data-testid="stDataFrame"] tbody tr:nth-child(even) td,
+[data-testid="stTable"] tbody tr:nth-child(even) td { background: rgba(14, 18, 48, 0.30) !important; }
+[data-testid="stDataFrame"] tbody tr:hover td,
+[data-testid="stTable"] tbody tr:hover td,
+[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] { background: rgba(0, 212, 255, 0.08) !important; }
+[data-testid="stDataFrame"] [data-testid="data-grid-canvas"],
+[data-testid="stDataFrameResizable"] { background: transparent !important; border-radius: var(--radius-md) !important; }
+
+/* ── st.json (react-json-view) — must NOT render as an opaque light block ── */
+[data-testid="stJson"] {
+  background: rgba(6, 8, 18, 0.78) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.06);
+  backdrop-filter: blur(8px) saturate(1.06);
+  border: 1px solid rgba(0, 212, 255, 0.18) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 12px 14px !important;
+  box-shadow: var(--spec-inset-soft) !important;
+}
+[data-testid="stJson"], [data-testid="stJson"] * {
+  background: transparent !important;
+  font-family: 'Share Tech Mono', monospace !important;
+}
+[data-testid="stJson"] .object-key, [data-testid="stJson"] .object-key span { color: var(--gf-cyan) !important; }
+[data-testid="stJson"] .string-value { color: var(--gf-green) !important; }
+[data-testid="stJson"] .variable-value, [data-testid="stJson"] span { color: var(--gf-silver) !important; }
+[data-testid="stJson"] .node-ellipsis, [data-testid="stJson"] svg { color: var(--gf-cyan) !important; fill: var(--gf-cyan) !important; }
+
+/* ── Alerts — VERIFIED selectors. 1.44 keys variants ONLY off
+   stAlertContent{Success,Warning,Error,Info} (+ stAlertContainer). The
+   .success/[kind=]/[data-baseweb-kind=] selectors do NOT exist — removed. ── */
+[data-testid="stAlert"], [data-testid="stAlertContainer"], .stAlertContainer {
+  background: rgba(14, 18, 48, 0.72) !important;
+  border: var(--hairline) !important;
+  border-left: 3px solid var(--gf-cyan) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--gf-silver) !important;
+  box-shadow: var(--spec-inset-soft), var(--drop-soft) !important;
+  padding: 14px !important;
+}
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stAlert"] p, [data-testid="stAlert"] div { color: inherit !important; }
+[data-testid="stAlert"] svg { color: currentColor !important; fill: currentColor !important; }
+/* Variant tints via the real content testids (these carry through reliably) */
+[data-testid="stAlertContentInfo"] { color: var(--gf-cyan) !important; }
+[data-testid="stAlertContentSuccess"] {
+  color: var(--gf-green) !important;
+  border-left: 3px solid var(--gf-green) !important;
+}
+[data-testid="stAlertContentWarning"] {
+  color: var(--gf-gold) !important;
+  border-left: 3px solid var(--gf-gold) !important;
+}
+[data-testid="stAlertContentError"] {
+  color: var(--gf-crimson) !important;
+  border-left: 3px solid var(--gf-crimson) !important;
+}
+/* Re-color the alert CONTAINER's left rule when it wraps a known content kind */
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentSuccess"]),
+[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) { border-left-color: var(--gf-green) !important; }
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]),
+[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) { border-left-color: var(--gf-gold) !important; }
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]),
+[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) { border-left-color: var(--gf-crimson) !important; }
+
+/* ── Toast — GLASS (transient overlay) ───────────────────────────────────── */
+[data-testid="stToast"] {
+  background: rgba(14, 18, 48, 0.85) !important;
+  -webkit-backdrop-filter: var(--blur-pop);
+  backdrop-filter: var(--blur-pop);
+  border: 1px solid rgba(0, 212, 255, 0.27) !important;
+  border-radius: var(--radius-sm) !important;
+  color: #e4e4f4 !important;
+  box-shadow: var(--spec-inset), var(--drop-pop) !important;
+}
+[data-testid="stToast"] * { color: #e4e4f4 !important; }
+
+/* ── st.status — GLASS card ──────────────────────────────────────────────── */
+[data-testid="stStatus"], [data-testid="stStatus"] > div, [data-testid="stStatusWidget"] {
+  background: var(--glass-card) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--spec-inset-soft), var(--drop-soft) !important;
+}
+[data-testid="stStatus"] > div > div > button, [data-testid="stStatus"] summary {
+  background: transparent !important; color: var(--gf-cyan) !important; border: none !important;
+  transition: background var(--ease) !important;
+}
+[data-testid="stStatus"] > div > div > button:hover, [data-testid="stStatus"] summary:hover {
+  background: rgba(0, 212, 255, 0.10) !important;
+}
+
+/* ── Chat messages — GLASS bubble + robust role differentiation ──────────── */
+[data-testid="stChatMessage"] {
+  background: var(--glass-card) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: var(--hairline) !important;
+  border-left: 3px solid var(--gf-dim) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--spec-inset-soft), var(--drop-soft) !important;
+  padding: 12px 14px !important;
+  margin: 8px 0 !important;
+}
+[data-testid="stChatMessage"][data-role="assistant"],
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+  border-left: 3px solid var(--gf-cyan) !important; background: rgba(0, 212, 255, 0.08) !important;
+}
+[data-testid="stChatMessage"][data-role="user"],
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+  border-left: 3px solid var(--gf-gold) !important; background: rgba(255, 215, 0, 0.06) !important;
+}
+[data-testid="stChatMessageAvatarAssistant"] { color: var(--gf-cyan) !important; }
+[data-testid="stChatMessageAvatarUser"] { color: var(--gf-gold) !important; }
+[data-testid="stChatInput"], [data-testid="stChatInput"] > div, [data-testid="stChatInputContainer"] {
+  background: rgba(14, 18, 48, 0.75) !important;
+  border: 1px solid rgba(0, 212, 255, 0.27) !important;
+  border-radius: var(--radius-md) !important;
+}
+[data-testid="stChatInput"] textarea { background: transparent !important; border: none !important; color: #e4e4f4 !important; }
+
+/* ── File uploader / dropzone — GLASS (interactive card) ─────────────────── */
+[data-testid="stFileUploaderDropzone"], [data-testid="stFileUploadDropzone"] {
+  background: var(--glass-card) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: 2px dashed rgba(0, 212, 255, 0.27) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 24px !important;
+  color: var(--gf-silver) !important;
+  transition: border-color var(--ease), background var(--ease), box-shadow var(--ease) !important;
+}
+[data-testid="stFileUploaderDropzone"]:hover, [data-testid="stFileUploadDropzone"]:hover {
+  border-color: rgba(0, 212, 255, 0.53) !important;
+  background: rgba(0, 212, 255, 0.05) !important;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.20) !important;
+}
+[data-testid="stFileUploaderDropzone"] svg, [data-testid="stFileUploadDropzone"] svg { fill: var(--gf-cyan) !important; }
+[data-testid="stFileUploaderDropzone"] button, [data-testid="stFileUploadDropzone"] button {
+  background: rgba(14, 18, 48, 0.85) !important;
+  color: var(--gf-cyan) !important;
+  border: 1px solid rgba(0, 212, 255, 0.53) !important;
+  border-radius: var(--radius-sm) !important;
+}
+[data-testid="stFileUploaderFile"] {
+  background: rgba(9, 14, 32, 0.70) !important;
+  border: 1px solid rgba(0, 212, 255, 0.18) !important;
+  border-radius: 8px !important;
+}
+[data-testid="stFileUploaderFileName"] { color: var(--gf-silver) !important; }
+
+/* ── Code BLOCK vs inline code (NO blur — code blocks are high-count in this
+   ASCII-heavy app: headers, XP bars, quick-start. The 0.80 fill is near-opaque,
+   so blur added cost without visible benefit — dropped per perf review). ───── */
+[data-testid="stCode"], [data-testid="stCode"] > pre, pre {
+  background: rgba(6, 8, 18, 0.86) !important;
+  border: 1px solid rgba(0, 212, 255, 0.20) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 14px !important;
+  box-shadow: var(--spec-inset-soft) !important;
+}
+[data-testid="stCode"] code, pre code {
+  background: transparent !important; border: none !important;
+  color: var(--gf-cyan) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+}
+/* Inline code: tint only, NO backdrop-filter (could be dozens per page) */
+:not(pre) > code, [data-testid="stMarkdown"] code {
+  background: rgba(0, 212, 255, 0.10) !important;
+  border: 1px solid rgba(0, 212, 255, 0.18) !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+  color: #6fe3ff !important;
+}
+[data-testid="stCodeCopyButton"] { background: rgba(0, 212, 255, 0.10) !important; color: var(--gf-cyan) !important; }
+
+/* ── Progress bar — NO blur ──────────────────────────────────────────────── */
+[data-testid="stProgress"] > div {
+  background: rgba(14, 18, 48, 0.60) !important;
+  border: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-radius: 6px !important;
+  height: 8px !important;
+  overflow: hidden;
+}
+[data-testid="stProgress"] > div > div { background: transparent !important; }
+[data-testid="stProgress"] > div > div > div {
+  background: linear-gradient(90deg, var(--gf-cyan), var(--gf-gold)) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.30) !important;
+}
+
+/* ── Spinner — conic-gradient ring (one cheap composited element) ─────────── */
+/* 1.44 emits an SVG ring; target the rotating div/svg, not a non-existent <i>. */
+[data-testid="stSpinner"] > div > div,
+[data-testid="stSpinner"] svg,
+.stSpinner > div {
+  border: none !important;
+  width: 1.6rem !important; height: 1.6rem !important;
+  border-radius: 50% !important;
+  background: conic-gradient(from 0deg, var(--gf-cyan), var(--gf-gold), var(--gf-green), var(--gf-cyan)) !important;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0) !important;
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0) !important;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.35) !important;
+  animation: gf-spin 0.85s linear infinite !important;
+}
+[data-testid="stSpinner"] { color: var(--gf-cyan) !important; }
+
+/* ── Divider ─────────────────────────────────────────────────────────────── */
+hr, [data-testid="stDivider"] hr {
+  border: none !important;
+  border-top: 1px solid rgba(0, 212, 255, 0.22) !important;
+  height: 1px !important; margin: 16px 0 !important; box-shadow: none !important;
+}
+
+/* ── Caption ─────────────────────────────────────────────────────────────── */
+[data-testid="stCaption"], [data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+  color: var(--gf-label) !important;   /* AA-safe (>=4.5:1) — was --gf-dim (~3.1:1) */
+  font-size: 0.85rem !important;
+  margin-top: 4px !important;
+}
+
+/* ── Popover ─────────────────────────────────────────────────────────────── */
+[data-testid="stPopover"] > div, [data-testid="stPopoverBody"],
+div[data-baseweb="popover"] > div {
+  background: var(--glass-pop) !important;
+  -webkit-backdrop-filter: var(--blur-pop);
+  backdrop-filter: var(--blur-pop);
+  border: 1px solid rgba(0, 212, 255, 0.20) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--spec-inset), var(--drop-pop) !important;
+  z-index: 9999 !important;
+}
+[data-testid="stPopover"] > button {
+  background: transparent !important;
+  color: var(--gf-cyan) !important;
+  border: 1px solid rgba(0, 212, 255, 0.30) !important;
+  border-radius: var(--radius-sm) !important;
+  transition: background var(--ease) !important;
+}
+[data-testid="stPopover"] > button:hover { background: rgba(0, 212, 255, 0.15) !important; }
+[data-testid="stPopover"] > button svg { fill: var(--gf-cyan) !important; }
+
+/* ── Page link ───────────────────────────────────────────────────────────── */
+[data-testid="stPageLink"], [data-testid="stPageLink"] a {
+  color: var(--gf-cyan) !important;
+  border-radius: 8px !important;
+  transition: background var(--ease) !important;
+}
+[data-testid="stPageLink"] a:hover { text-decoration: underline !important; background: rgba(0, 212, 255, 0.08) !important; }
+[data-testid="stPageLink"] p { color: var(--gf-cyan) !important; }
+
+/* ── Pills / segmented control / feedback / button-group (defensive) ─────── */
+[data-baseweb="button-group"], [data-testid="stButtonGroup"] {
+  background: rgba(14, 18, 48, 0.62) !important;
+  border: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-radius: var(--radius-sm) !important;
+}
+[data-baseweb="button-group"] button, [data-testid="stButtonGroup"] button {
+  background: transparent !important;
+  color: var(--gf-silver) !important;
+  border: none !important;
+  transition: background var(--ease), color var(--ease) !important;
+}
+[data-baseweb="button-group"] button:hover, [data-testid="stButtonGroup"] button:hover {
+  background: rgba(0, 212, 255, 0.10) !important; color: var(--gf-cyan) !important;
+}
+[data-baseweb="button-group"] button[aria-checked="true"],
+[data-baseweb="button-group"] button[aria-pressed="true"],
+[data-testid="stButtonGroup"] button[kind="pillsActive"] {
+  background: rgba(0, 212, 255, 0.18) !important; color: var(--gf-cyan) !important;
+}
+
+/* ── Columns — transparent so parent glass / mesh reads through ──────────── */
+[data-testid="stColumnsContainer"] > div, [data-testid="stColumnsContainer"] > div > div,
+[data-testid="stHorizontalBlock"] > div, [data-testid="stColumn"], [data-testid="column"] {
+  background: transparent !important;
+}
+[data-testid="stColumnsContainer"] { gap: 12px; }
+
+/* ── Markdown container ──────────────────────────────────────────────────── */
+[data-testid="stMarkdown"], [data-testid="stMarkdownContainer"] { color: var(--gf-silver) !important; }
+[data-testid="stMarkdown"] a { color: var(--gf-cyan) !important; }
+[data-testid="stMarkdown"] h1, [data-testid="stMarkdown"] h2, [data-testid="stMarkdown"] h3 { color: var(--gf-cyan) !important; }
+[data-testid="stMarkdown"] h4, [data-testid="stMarkdown"] h5, [data-testid="stMarkdown"] h6 { color: var(--gf-gold) !important; }
+[data-testid="stMarkdown"] blockquote {
+  border-left: 3px solid rgba(0, 212, 255, 0.40) !important;
+  background: rgba(0, 212, 255, 0.05) !important;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 6px 14px;
+  color: var(--gf-silver) !important;
+}
+
+/* ── LaTeX / KaTeX ───────────────────────────────────────────────────────── */
+[data-testid="stLatex"], [data-testid="stMarkdown"] .katex, .katex {
+  color: var(--gf-cyan) !important;
+  background: transparent !important;
+  filter: drop-shadow(0 0 4px rgba(0, 212, 255, 0.22));
+}
+[data-testid="stLatex"] .katex * { color: var(--gf-cyan) !important; }
+
+/* ── Color picker ────────────────────────────────────────────────────────── */
+[data-testid="stColorPicker"] > div, [data-testid="stColorPickerBlock"] > div {
+  background: var(--glass-card) !important;
+  border: 1px solid rgba(0, 212, 255, 0.27) !important;
+  border-radius: var(--radius-sm) !important;
+}
+[data-testid="stColorPicker"] [data-baseweb="popover"] { border-radius: var(--radius-sm) !important; }
+
+/* ── Camera input / audio input ──────────────────────────────────────────── */
+[data-testid="stCameraInput"], [data-testid="stAudioInput"] {
+  background: var(--glass-card) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: 1px solid rgba(0, 212, 255, 0.27) !important;
+  border-radius: var(--radius-sm) !important;
+  overflow: hidden;
+}
+[data-testid="stCameraInput"] button, [data-testid="stAudioInput"] button {
+  background: rgba(14, 18, 48, 0.85) !important;
+  color: var(--gf-cyan) !important;
+  border: 1px solid rgba(0, 212, 255, 0.40) !important;
+  border-radius: var(--radius-sm) !important;
+}
+[data-testid="stCameraInput"] button:hover, [data-testid="stAudioInput"] button:hover { background: rgba(0, 212, 255, 0.15) !important; }
+
+/* ── Media (image / video / audio) — frosted frame so they don't sit as
+   flat opaque blocks over the glass ────────────────────────────────────── */
+[data-testid="stImage"] img {
+  border: var(--hairline) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--drop-soft) !important;
+}
+[data-testid="stVideo"] video, [data-testid="stVideo"] {
+  border-radius: var(--radius-sm) !important;
+  overflow: hidden;
+  box-shadow: var(--drop-soft) !important;
+}
+[data-testid="stAudio"] {
+  background: var(--glass-card) !important;
+  -webkit-backdrop-filter: var(--blur-light);
+  backdrop-filter: var(--blur-light);
+  border: 1px solid rgba(0, 212, 255, 0.18) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 6px !important;
+}
+
+/* ── Tooltip ─────────────────────────────────────────────────────────────── */
+[data-testid="stTooltipContent"], [data-baseweb="tooltip"] > div {
+  background: rgba(9, 14, 32, 0.92) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.06);
+  backdrop-filter: blur(10px) saturate(1.06);
+  border: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-radius: 8px !important;
+  color: #e4e4f4 !important;
+  box-shadow: var(--drop-pop) !important;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(6, 8, 18, 0.50); border-radius: 4px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.40);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 212, 255, 0.20);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 255, 0.65); }
+* { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.40) rgba(6, 8, 18, 0.50); }
+
+/* ── Accessibility — reduced MOTION: freeze sheen/spin, clamp transitions ── */
+@media (prefers-reduced-motion: reduce) {
+  div.stButton > button:hover::after,
+  [data-testid="stFormSubmitButton"] button:hover::after,
+  [data-testid="stDownloadButton"] button:hover::after { animation: none !important; }
+  [data-testid="stSpinner"] > div > div, [data-testid="stSpinner"] svg { animation-duration: 1.6s !important; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* ── Accessibility — reduced TRANSPARENCY: swap glass for solid surfaces ──── */
+@media (prefers-reduced-transparency: reduce) {
+  header[data-testid="stHeader"],
+  [data-testid="stMainBlockContainer"], .block-container,
+  [data-testid="stMetric"], [data-testid="stTabs"] [role="tabpanel"],
+  [data-testid="stExpander"] [role="region"], [data-testid="stExpanderDetails"],
+  [data-testid="stStatus"], [data-testid="stChatMessage"], [data-testid="stToast"],
+  [data-testid="stDataFrame"], [data-testid="stTable"], [data-testid="stForm"],
+  [data-testid="stJson"], [data-testid="stPopover"] > div, [data-testid="stPopoverBody"],
+  [data-testid="stSelectboxVirtualDropdown"], [data-testid="selectbox-listbox"],
+  [data-baseweb="popover"] [role="listbox"], [data-baseweb="menu"], ul[role="listbox"],
+  [data-testid="stCode"], [data-testid="stCode"] > pre, pre,
+  [data-testid="stFileUploaderDropzone"], [data-testid="stFileUploadDropzone"],
+  [data-testid="stAudio"], [data-testid="stCameraInput"], [data-testid="stAudioInput"],
+  [data-testid="stColorPicker"] > div,
+  [data-testid="stTooltipContent"], [data-baseweb="tooltip"] > div,
+  .gf-glass {
+    background: var(--gf-panel) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  [data-testid="stSidebar"] {
+    background: var(--gf-sidebar) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}

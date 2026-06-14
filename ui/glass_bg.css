@@ -1,0 +1,55 @@
+/* ============================================================================
+   ANIMATED GRADIENT-MESH BACKGROUND — Frosted Obsidian
+   Single fixed ::before behind ALL app content so the frosting has color to
+   refract. Cyan / gold / violet / green radial pools over obsidian #060812.
+   PERF: ONE layer, drifts via transform/translate3d + tiny scale ONLY.
+   No animated background-position (that repaints the viewport every frame),
+   no animated filters, no blur, no mix-blend-mode, no second ::after layer.
+   ============================================================================ */
+[data-testid="stAppViewContainer"] {
+  position: relative;
+  isolation: isolate;                 /* keeps ::before below content; no z leaks */
+  background-color: #060812 !important;
+}
+
+[data-testid="stAppViewContainer"]::before {
+  content: "";
+  position: fixed;
+  inset: -10%;                        /* overscan so drift never reveals an edge */
+  z-index: -1;
+  pointer-events: none;
+  background-color: #060812;
+  background-image:
+    radial-gradient(38vw 38vw at 18% 22%, rgba(0, 212, 255, 0.18), transparent 60%),
+    radial-gradient(42vw 42vw at 82% 18%, rgba(255, 215, 0, 0.11),  transparent 62%),
+    radial-gradient(46vw 46vw at 70% 80%, rgba(106, 90, 205, 0.18), transparent 60%),
+    radial-gradient(40vw 40vw at 28% 82%, rgba(64, 220, 128, 0.12), transparent 62%),
+    radial-gradient(60vw 60vw at 50% 50%, rgba(14, 18, 48, 0.55),   transparent 70%);
+  background-repeat: no-repeat;
+  /* position:fixed already pins the layer; background-attachment:fixed removed
+     (redundant + extra compositing cost). translateZ(0) already promotes this to
+     its own compositor layer, so `will-change` (which would pin a full-viewport
+     layer in VRAM for the whole session) is intentionally omitted. */
+  transform: translateZ(0);
+  animation: gf-mesh-drift 60s ease-in-out infinite alternate;
+}
+
+/* Single low-amplitude, GPU-only drift: translate + tiny scale. Composited. */
+@keyframes gf-mesh-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1.00); }
+  50%  { transform: translate3d(1.2%, -1.4%, 0) scale(1.03); }
+  100% { transform: translate3d(-1.4%, 1.0%, 0) scale(1.02); }
+}
+
+/* Keep all Streamlit content above the mesh */
+[data-testid="stSidebar"] { z-index: 2; }
+
+/* Respect reduced-motion: freeze the mesh entirely */
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="stAppViewContainer"]::before { animation: none !important; }
+}
+
+/* Respect reduced-transparency: drop the colored mesh to flat obsidian */
+@media (prefers-reduced-transparency: reduce) {
+  [data-testid="stAppViewContainer"]::before { background-image: none !important; }
+}

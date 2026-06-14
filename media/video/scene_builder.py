@@ -77,8 +77,8 @@ def _build_narration_script(lecture: dict, scene: dict, scene_index: int, total_
     narrative_arc = lecture.get("video_recipe", {}).get("narrative_arc", [])
 
     # If the narration_prompt is already rich (LLM-enriched), use it directly
-    # with only minimal framing. Enriched narration is typically 50+ words.
-    narration_is_enriched = len(narration_prompt.split()) >= 50
+    # with only minimal framing rather than smothering it in template filler.
+    narration_is_enriched = len(narration_prompt.split()) >= 30
 
     parts: list[str] = []
 
@@ -190,6 +190,15 @@ def _build_narration_script(lecture: dict, scene: dict, scene_index: int, total_
     script = re.sub(r"[.!,]\s*[.!,]", ".", script)
     script = re.sub(r"  +", " ", script)
 
+    # Cap length so a scene doesn't balloon into minutes of repetitive filler.
+    # Keep enough to comfortably cover the target, then stop at a sentence end.
+    word_cap = max(target_words + 12, int(target_words * 1.6))
+    words = script.split()
+    if len(words) > word_cap:
+        clipped = " ".join(words[:word_cap])
+        cut = max(clipped.rfind("."), clipped.rfind("!"), clipped.rfind("?"))
+        script = clipped[:cut + 1] if cut > 40 else clipped + "."
+
     return script.strip()
 
 
@@ -219,13 +228,19 @@ def _sanitize_for_tts(text: str) -> str:
 
 def build_scene_clip(lecture: dict, scene: dict, temp_dir: Path, tts_settings: dict,
                      output_mode: str = "full", bg_image=None,
-                     scene_index: int = 0, total_scenes: int = 1) -> VideoClip:
+                     scene_index: int = 0, total_scenes: int = 1,
+                     width: int | None = None, height: int | None = None,
+                     fps: int | None = None, static_bg: bool = False) -> VideoClip:
     """Build a single scene's video clip with audio layers."""
     bid = scene.get("block_id", "A")
     lid = lecture.get("lecture_id", "lec")
-    W = int(get_setting("video_width", "960"))
-    H = int(get_setting("video_height", "540"))
-    fps = int(get_setting("video_fps", "15"))
+    # Honour explicit dimensions (e.g. the Batch Render resolution picker); fall
+    # back to settings. H.264 / yuv420p requires even width and height.
+    W = int(width) if width else int(get_setting("video_width", "960"))
+    H = int(height) if height else int(get_setting("video_height", "540"))
+    fps = int(fps) if fps else int(get_setting("video_fps", "15"))
+    W -= W % 2
+    H -= H % 2
     target_dur = scene.get("duration_s", 60)
 
     # ── Build full narration script ──────────────────────────────────────────
@@ -241,47 +256,70 @@ def build_scene_clip(lecture: dict, scene: dict, temp_dir: Path, tts_settings: d
         rate=str(tts_settings["rate_str"]),
         pitch=str(tts_settings["pitch_str"]),
     )
-    tts_dur = audio_duration(tts_path)
-    if tts_dur < 2.0:
-        tts_dur = 30.0  # fallback for broken TTS
+    tts_ok = tts_path.exists() and tts_path.stat().st_size > 500
+    tts_dur = audio_duration(tts_path) if tts_ok else 0.0
+    if not tts_ok or tts_dur < 0.5:
+        # TTS produced nothing usable. Fall back to the target length with a
+        # silent track (NOT the old magic 30s) and record why, so a broken
+        # engine surfaces in the logs instead of padding every scene to 30s.
+        try:
+            from core.logger import log_error
+            log_error(f"TTS empty for scene {bid} (lecture {lid}); silent fallback",
+                      category="audio", error_id="TTS_EMPTY")
+        except Exception:
+            pass
+        tts_ok = False
+        tts_dur = float(target_dur) if target_dur else 8.0
 
-    # Use the longer of TTS duration or target scene duration
-    dur = max(tts_dur, target_dur)
+    # Scene length tracks the narration plus a short breathing tail, so the video
+    # is exactly as long as the speech — no trailing dead air, no cut-off words.
+    dur = max(tts_dur + 0.6, 3.0)
 
-    # ── Ambient pad (same duration as TTS) ───────────────────────────────────
+    # ── Ambient pad + binaural (generated to match the final duration) ───────
     amb_data = generate_ambient(dur, volume=0.10)
     amb_path = temp_dir / f"{lid}_{bid}_amb.wav"
     write_wav_stereo(amb_path, amb_data)
 
-    # ── Binaural layer ────────────────────────────────────────────────────────
     bin_data = generate_binaural(dur, preset=str(tts_settings["binaural"]), volume=0.12)
     bin_path = temp_dir / f"{lid}_{bid}_bin.wav"
     write_wav_stereo(bin_path, bin_data)
 
-    # ── Mix audio ─────────────────────────────────────────────────────────────
+    # ── Mix audio — degrade gracefully; a bad layer never kills the scene ─────
+    layers = []
+    if output_mode in ("full", "music_only"):
+        for _path, _vol in ((amb_path, 0.40), (bin_path, 0.22)):
+            try:
+                layers.append(AudioFileClip(str(_path)).volumex(_vol))
+            except Exception:
+                pass  # missing music layer is non-fatal
+    if tts_ok and output_mode in ("full", "narration_only"):
+        try:
+            layers.append(AudioFileClip(str(tts_path)).volumex(1.0))
+        except Exception:
+            tts_ok = False
     try:
-        layers = []
-        if output_mode in ("full", "music_only"):
-            layers.append(AudioFileClip(str(amb_path)).volumex(0.35))
-            layers.append(AudioFileClip(str(bin_path)).volumex(0.20))
-        if output_mode in ("full", "narration_only"):
-            tts_clip = AudioFileClip(str(tts_path)).volumex(1.0)
-            layers.append(tts_clip)
-        audio_mix = CompositeAudioClip(layers) if layers else AudioFileClip(str(tts_path))
-        # Truncate audio to video duration to prevent container corruption
-        audio_mix = audio_mix.set_duration(dur)
+        audio_mix = CompositeAudioClip(layers).set_duration(dur) if layers else None
     except Exception:
-        audio_mix = AudioFileClip(str(tts_path)).set_duration(dur)
+        audio_mix = None
+
+    # Normalize loudness so levels are consistent scene-to-scene (best-effort).
+    if audio_mix is not None:
+        try:
+            from moviepy.audio.fx.audio_normalize import audio_normalize
+            audio_mix = audio_normalize(audio_mix)
+        except Exception:
+            pass
 
     # ── Video frames ──────────────────────────────────────────────────────────
     vfx = load_vfx_config()
     particles = init_particles(hash(f"{lid}{bid}") & 0xFFFF, W, H)
     narration_words = narration.split()
     make_frame = build_frame_renderer(lecture, scene, particles, narration_words, dur, W, H,
-                                      vfx=vfx, bg_image=bg_image)
+                                      vfx=vfx, bg_image=bg_image, static_bg=static_bg)
 
     video = VideoClip(make_frame, duration=dur).set_fps(fps)
-    video = video.set_audio(audio_mix)
+    if audio_mix is not None:
+        video = video.set_audio(audio_mix)
     return video
 
 

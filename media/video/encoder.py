@@ -29,7 +29,8 @@ def _slug(text: str) -> str:
 
 def render_lecture(lecture_data: dict, output_dir: Path, chunk_by_scene: bool = False,
                    fps: int | None = None, width: int | None = None, height: int | None = None,
-                   suffix: str = "", output_mode: str = "full") -> list[Path]:
+                   suffix: str = "", output_mode: str = "full",
+                   should_continue: Callable[[], bool] | None = None) -> list[Path]:
     """Render a lecture to one (or more) MP4 files."""
     output_dir.mkdir(parents=True, exist_ok=True)
     _render_t0 = time.time()
@@ -39,6 +40,14 @@ def render_lecture(lecture_data: dict, output_dir: Path, chunk_by_scene: bool = 
 
     tts_settings = get_tts_settings()
     scenes = lecture_data.get("video_recipe", {}).get("scene_blocks", [])
+
+    # Resolve output resolution + fps ONCE. Explicit args (e.g. the Batch Render
+    # resolution picker) win over settings; even dimensions are required by H.264.
+    actual_fps = fps or int(get_setting("video_fps", "15"))
+    res_w = int(width) if width else int(get_setting("video_width", "960"))
+    res_h = int(height) if height else int(get_setting("video_height", "540"))
+    res_w -= res_w % 2
+    res_h -= res_h % 2
 
     if not scenes:
         scenes = [{
@@ -50,63 +59,119 @@ def render_lecture(lecture_data: dict, output_dir: Path, chunk_by_scene: bool = 
             "ambiance": {"music": "ambient", "sfx": "gentle", "color_palette": "cyan and dark"},
         }]
 
-    # ── Try to get AI-generated background for scenes with visual_prompt ─────
+    # ── Resolve AI-background availability ───────────────────────────────────
     bg_images: dict[str, "Image.Image | None"] = {}
+    static_bids: set[str] = set()
+    # AI images keyed by block_id. Each becomes either a framed inset inside a
+    # programmatic slide (the hybrid default) or — for explicit render_mode
+    # "diffusion" scenes — a full-bleed cinematic background.
+    ai_images: dict[str, "Image.Image"] = {}
     try:
         from media.video.scene_builder import load_vfx_config as _load_vfx
         _vfx_cfg = _load_vfx()
         _ai_bg_enabled = _vfx_cfg.get("ai_backgrounds", True)
     except Exception:
+        _vfx_cfg = {}
         _ai_bg_enabled = True
 
+    # ── Step 1: generate AI images for any scene with a visual_prompt ─────────
+    # These are produced up front so the slide pass below can composite them as
+    # insets. If a provider is missing / rate-limited the dict simply stays empty
+    # and the slides render clean and figure-less — diffusion is never required.
     if _ai_bg_enabled:
         try:
             from media.diffusion.free_tier_cycler import generate_image_with_fallback
-            gen_count = 0
+            from PIL import Image
             _preferred_prov = (
                 _vfx_cfg.get("preferred_image_provider", "")
                 or get_setting("image_provider", "Auto (priority order)")
-            ) if _ai_bg_enabled else ""
-            # Build context prefix so diffusion images match the lecture subject
+            )
+            # Context prefix so diffusion images match the lecture subject.
             _ctx_title = lecture_data.get("title", "")
             _ctx_course = lecture_data.get("course_title", "")
-            _ctx_prefix = ""
             if _ctx_course and _ctx_title:
                 _ctx_prefix = f"{_ctx_course}: {_ctx_title} — "
             elif _ctx_title:
                 _ctx_prefix = f"{_ctx_title} — "
-            for i, scene in enumerate(scenes):
-                visual = scene.get("visual_prompt", "")
+            else:
+                _ctx_prefix = ""
+            gen_count = 0
+            for scene in scenes:
                 bid = scene.get("block_id", "?")
-                if visual and "title card" not in visual.lower():
-                    try:
-                        img_path, prov_name = generate_image_with_fallback(
-                            _ctx_prefix + visual, 960, 540,
-                            course_id=lecture_data.get("course_id", ""),
-                            lecture_id=lid,
-                            preferred_provider=_preferred_prov if _preferred_prov != "Auto (priority order)" else "",
-                        )
-                        if img_path and img_path.exists():
-                            from PIL import Image
-                            bg_images[bid] = Image.open(img_path).convert("RGB")
-                            gen_count += 1
-                            log_render(lid, "img_gen_ok", scene=bid, provider=prov_name)
-                        else:
-                            log_render(lid, "img_gen_miss", scene=bid,
-                                       reason="all_providers_returned_none")
-                    except Exception as img_err:
-                        log_error(f"Image gen failed for scene {bid}: {img_err}",
-                                  category="diffusion", error_id="IMG_GEN_FAIL")
+                _mode = str(scene.get("render_mode", "")).lower()
+                visual = scene.get("visual_prompt", "")
+                if _mode == "gradient":
+                    continue  # gradient scenes never want an image
+                if not visual or "title card" in visual.lower():
+                    continue
+                try:
+                    img_path, prov_name = generate_image_with_fallback(
+                        _ctx_prefix + visual, res_w, res_h,
+                        course_id=lecture_data.get("course_id", ""),
+                        lecture_id=lid,
+                        preferred_provider=_preferred_prov if _preferred_prov != "Auto (priority order)" else "",
+                    )
+                    if img_path and img_path.exists():
+                        ai_images[bid] = Image.open(img_path).convert("RGB")
+                        gen_count += 1
+                        log_render(lid, "img_gen_ok", scene=bid, provider=prov_name)
+                    else:
+                        log_render(lid, "img_gen_miss", scene=bid,
+                                   reason="all_providers_returned_none")
+                except Exception as img_err:
+                    log_error(f"Image gen failed for scene {bid}: {img_err}",
+                              category="diffusion", error_id="IMG_GEN_FAIL")
             log_render(lid, "img_gen_done", generated=gen_count, total=len(scenes))
         except ImportError:
             log_render(lid, "img_gen_skip", reason="diffusion_not_installed")
     else:
         log_render(lid, "img_gen_skip", reason="ai_backgrounds_disabled")
 
+    # ── Step 2: programmatic slides — the default visual for any subject ──────
+    # Every scene that isn't an explicit "diffusion"/"gradient" gets a clean,
+    # topic-accurate slide. When an AI image exists for that scene it is
+    # composited into the slide as a framed inset (the hybrid slide+image look),
+    # so a real figure shows up when diffusion works and the slide alone is the
+    # reliable fallback when it doesn't. No regeneration needed for any topic.
+    try:
+        from media.video.diagram_renderer import render_scene_slide
+        for idx, scene in enumerate(scenes):
+            bid = scene.get("block_id", "?")
+            mode = str(scene.get("render_mode", "")).lower()
+            if mode in ("diffusion", "gradient"):
+                continue
+            inset = ai_images.get(bid)
+            slide = render_scene_slide(scene, lecture_data, res_w, res_h,
+                                       scene_index=idx, inset_image=inset)
+            if slide is not None:
+                bg_images[bid] = slide
+                static_bids.add(bid)
+                log_render(lid, "slide_ok", scene=bid, mode=mode or "auto",
+                           hybrid=bool(inset))
+            elif inset is not None:
+                # No slide content but we do have an image → full-bleed cinematic.
+                bg_images[bid] = inset
+                log_render(lid, "img_fullbleed", scene=bid)
+            else:
+                log_render(lid, "slide_empty", scene=bid, mode=mode or "auto")
+    except Exception as e:
+        log_error(f"Slide render failed: {e}", category="render", error_id="SLIDE_FAIL")
+
+    # ── Step 3: explicit full-bleed diffusion scenes (Ken Burns + HUD) ───────
+    for scene in scenes:
+        bid = scene.get("block_id", "?")
+        mode = str(scene.get("render_mode", "")).lower()
+        if mode == "diffusion" and bid not in bg_images and bid in ai_images:
+            bg_images[bid] = ai_images[bid]  # not in static_bids → cinematic path
+
     clips: list[tuple[dict, "VideoClip"]] = []
     failed_scenes: list[str] = []
     total_scenes = len(scenes)
     for scene_idx, scene in enumerate(scenes):
+        if should_continue is not None and not should_continue():
+            log_error(f"Render of {lid} aborted before scene {scene.get('block_id', '?')}",
+                      category="render", error_id="RENDER_ABORTED")
+            break
         bid = scene.get("block_id", "?")
         clip = None
         bg_img = bg_images.get(bid)
@@ -114,7 +179,9 @@ def render_lecture(lecture_data: dict, output_dir: Path, chunk_by_scene: bool = 
             try:
                 clip = build_scene_clip(lecture_data, scene, temp_dir, tts_settings,
                                         output_mode=output_mode, bg_image=bg_img,
-                                        scene_index=scene_idx, total_scenes=total_scenes)
+                                        scene_index=scene_idx, total_scenes=total_scenes,
+                                        width=res_w, height=res_h, fps=actual_fps,
+                                        static_bg=bid in static_bids)
                 break
             except Exception as e:
                 if attempt == 0:
@@ -128,9 +195,10 @@ def render_lecture(lecture_data: dict, output_dir: Path, chunk_by_scene: bool = 
             clips.append((scene, clip))
 
     outputs: list[Path] = []
-    ffmpeg_params = ["-preset", "fast", "-movflags", "+faststart"]
+    # yuv420p = broad player compatibility; CRF 20 = good quality at sane size.
+    ffmpeg_params = ["-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+                     "-movflags", "+faststart"]
     vfx = load_vfx_config()
-    actual_fps = fps or int(get_setting("video_fps", "15"))
 
     if not clips:
         log_error(f"No valid clips for {lid} — nothing to render",

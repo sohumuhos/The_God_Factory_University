@@ -37,6 +37,26 @@ with st.expander("General", expanded=True):
         play_sfx("click")
         st.success("Name saved.")
 
+    # Interface theme (Appearance)
+    THEME_LABELS = {
+        "classic": "Classic — Dark Terminal (sharp, neon)",
+        "glass": "Frosted Obsidian — Liquid Glass (translucent, blurred)",
+    }
+    cur_theme = get_setting("ui_theme", "classic")
+    if cur_theme not in THEME_LABELS:
+        cur_theme = "classic"
+    sel_theme = st.selectbox(
+        "Interface theme", list(THEME_LABELS.keys()),
+        index=list(THEME_LABELS.keys()).index(cur_theme),
+        format_func=lambda k: THEME_LABELS[k],
+        help="Frosted Obsidian applies an Apple-style liquid-glass look over the dark-academic palette. "
+             "Applies across every page.",
+    )
+    if sel_theme != cur_theme:
+        save_setting("ui_theme", sel_theme)
+        play_sfx("click")
+        st.rerun()
+
     # Deadline system
     deadlines_on_val = get_setting("deadlines_enabled", "0") == "1"
     deadlines_toggle = st.toggle("Enable Deadlines", value=deadlines_on_val,

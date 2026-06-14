@@ -16,6 +16,7 @@ Colour palette:
 from __future__ import annotations
 
 import base64
+import html
 import io
 import math
 import random
@@ -59,154 +60,49 @@ FONT_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 """
 
-CSS = """
-<style>
-/* ── Reset & typography ───────────────────────────────────────────────── */
-* { box-sizing: border-box; }
-html, body, [class*="css"] {
-    background-color: #060812 !important;
-    color: #b8b8d0 !important;
-    font-family: 'Share Tech Mono', 'Courier New', monospace !important;
-}
-h1, h2, h3 { color: #00d4ff !important; letter-spacing: 2px; }
-h4, h5, h6 { color: #ffd700 !important; }
+# The actual theme stylesheets now live in ui/themes.py — a Streamlit-free module
+# so the CSS can be screenshot-tested headless and reused outside the app. This
+# file keeps the injection entry point and the procedural UI component helpers.
 
-/* ── Sidebar ──────────────────────────────────────────────────────────── */
-[data-testid="stSidebar"] {
-    background: #090e20 !important;
-    border-right: 1px solid #001830 !important;
-}
-[data-testid="stSidebar"] h1 { font-size: 1.1rem !important; }
-
-/* ── Main content ─────────────────────────────────────────────────────── */
-[data-testid="stAppViewContainer"] {
-    background-color: #060812 !important;
-}
-
-/* ── Metric boxes ─────────────────────────────────────────────────────── */
-[data-testid="stMetric"] {
-    background: #0e1230;
-    border: 1px solid #00d4ff44;
-    border-radius: 4px;
-    padding: 12px;
-}
-[data-testid="stMetricValue"] { color: #00d4ff !important; font-size: 1.6rem !important; }
-[data-testid="stMetricLabel"] { color: #606080 !important; font-size: 0.75rem !important; }
-[data-testid="stMetricDelta"] { color: #ffd700 !important; }
-
-/* ── Buttons ──────────────────────────────────────────────────────────── */
-div.stButton > button {
-    background: #0e1230 !important;
-    color: #00d4ff !important;
-    border: 1px solid #00d4ff88 !important;
-    border-radius: 2px !important;
-    font-family: 'Share Tech Mono', monospace !important;
-    letter-spacing: 1px !important;
-    transition: all 0.15s ease !important;
-}
-div.stButton > button:hover {
-    background: #001830 !important;
-    border-color: #ffd700 !important;
-    color: #ffd700 !important;
-    box-shadow: 0 0 8px #ffd70044 !important;
-}
-div.stButton > button:active {
-    background: #00d4ff22 !important;
-}
-
-/* ── Progress bars ────────────────────────────────────────────────────── */
-[data-testid="stProgress"] > div > div {
-    background: linear-gradient(90deg, #00d4ff, #ffd700) !important;
-}
-[data-testid="stProgress"] {
-    background: #0e1230 !important;
-    border: 1px solid #00d4ff22 !important;
-}
-
-/* ── Inputs ───────────────────────────────────────────────────────────── */
-input, textarea, [data-testid="stTextInput"] input {
-    background: #0e1230 !important;
-    color: #b8b8d0 !important;
-    border: 1px solid #00d4ff44 !important;
-    border-radius: 2px !important;
-    font-family: monospace !important;
-}
-input:focus, textarea:focus {
-    border-color: #00d4ff !important;
-    box-shadow: 0 0 4px #00d4ff44 !important;
-    outline: none !important;
-}
-
-/* ── Selectbox ────────────────────────────────────────────────────────── */
-[data-testid="stSelectbox"] > div > div {
-    background: #0e1230 !important;
-    border: 1px solid #00d4ff44 !important;
-    color: #b8b8d0 !important;
-}
-
-/* ── Tabs ─────────────────────────────────────────────────────────────── */
-[data-testid="stTabs"] [data-testid="stTab"] {
-    background: #090e20 !important;
-    color: #606080 !important;
-    border-bottom: 2px solid transparent !important;
-}
-[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {
-    color: #00d4ff !important;
-    border-bottom: 2px solid #00d4ff !important;
-    background: #0e1230 !important;
-}
-
-/* ── Expander ─────────────────────────────────────────────────────────── */
-[data-testid="stExpander"] {
-    background: #090e20 !important;
-    border: 1px solid #00d4ff22 !important;
-    border-radius: 2px !important;
-}
-[data-testid="stExpander"] summary { color: #00d4ff !important; }
-
-/* ── Code / monospace ─────────────────────────────────────────────────── */
-code, pre {
-    background: #060812 !important;
-    color: #00d4ff !important;
-    border: 1px solid #00d4ff22 !important;
-    border-radius: 2px !important;
-}
-
-/* ── Scrollbar ────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #060812; }
-::-webkit-scrollbar-thumb { background: #00d4ff44; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #00d4ff88; }
-
-/* ── Alert / info boxes ───────────────────────────────────────────────── */
-[data-testid="stAlert"] {
-    background: #0e1230 !important;
-    border-left: 3px solid #00d4ff !important;
-    color: #b8b8d0 !important;
-}
-
-/* ── Divider ──────────────────────────────────────────────────────────── */
-hr { border-color: #00d4ff22 !important; }
-
-/* ── Chat messages ────────────────────────────────────────────────────── */
-[data-testid="stChatMessage"] {
-    background: #090e20 !important;
-    border: 1px solid #00d4ff22 !important;
-    border-radius: 4px !important;
-}
-[data-testid="stChatMessage"][data-role="assistant"] {
-    border-left: 3px solid #00d4ff !important;
-}
-[data-testid="stChatMessage"][data-role="user"] {
-    border-left: 3px solid #ffd700 !important;
-}
-</style>
-"""
 
 # ─── Theme injection ──────────────────────────────────────────────────────────
 
+def active_theme() -> str:
+    """Return the user-selected UI theme: 'classic' (default) or 'glass'."""
+    try:
+        from core.database import get_setting
+        t = get_setting("ui_theme", "classic")
+    except Exception:
+        t = "classic"
+    return t if t in ("classic", "glass") else "classic"
+
+
 def inject_theme() -> None:
-    st.markdown(CSS, unsafe_allow_html=True)
+    from ui.themes import build_theme_css
+    st.markdown(build_theme_css(active_theme()), unsafe_allow_html=True)
+
+
+def _panel_attrs(token_name: str, colour: str, classic_style: str) -> str:
+    """Return the HTML container attributes (class + style) for a custom panel,
+    honoring the active theme.
+
+    Under "glass" (and only when the glass stylesheets are actually loaded) it
+    emits the frosted token — accent ``{c}`` → *colour* — plus a ``gf-glass`` class
+    so the CSS ``prefers-reduced-transparency`` fallback can override the inline
+    blur (a media query can't otherwise reach an inline style). Under "classic" it
+    returns the original inline style verbatim, so the classic look is
+    rendering-identical (zero regression)."""
+    if active_theme() == "glass":
+        try:
+            from ui.themes import helper_tokens, glass_available
+            if glass_available():
+                tok = helper_tokens("glass").get(token_name)
+                if tok:
+                    style = tok.replace("{c}", colour)
+                    return f'class="gf-glass" style="{style}"'
+        except Exception:
+            pass
+    return f'style="{classic_style}"'
 
 
 # ─── ASCII art components ─────────────────────────────────────────────────────
@@ -232,13 +128,16 @@ def section_divider(label: str = "") -> None:
 
 
 def stat_card(label: str, value: str, delta: str = "", colour: str = "#00d4ff") -> None:
-    html = f"""<div style="background:#0e1230;border:1px solid {colour}44;border-radius:4px;
-    padding:14px 18px;margin:4px 0;">
-    <div style="color:{colour};font-size:0.7rem;letter-spacing:2px;">{label.upper()}</div>
-    <div style="color:{colour};font-size:1.8rem;font-weight:bold;font-family:monospace;">{value}</div>
-    {"<div style='color:#ffd700;font-size:0.75rem;'>"+delta+"</div>" if delta else ""}
-    </div>"""
-    st.markdown(html, unsafe_allow_html=True)
+    classic = (f"background:#0e1230;border:1px solid {colour}44;border-radius:4px;"
+               f"padding:14px 18px;margin:4px 0;")
+    attrs = _panel_attrs("card", colour, classic)
+    lbl, val, dlt = html.escape(str(label).upper()), html.escape(str(value)), html.escape(str(delta))
+    inner = (
+        f'<div style="color:{colour};font-size:0.7rem;letter-spacing:2px;">{lbl}</div>'
+        f'<div style="color:{colour};font-size:1.8rem;font-weight:bold;font-family:monospace;">{val}</div>'
+        + (f"<div style='color:#ffd700;font-size:0.75rem;'>{dlt}</div>" if delta else "")
+    )
+    st.markdown(f'<div {attrs}>{inner}</div>', unsafe_allow_html=True)
 
 
 def xp_bar(current: int, maximum: int, label: str = "XP") -> None:
@@ -259,12 +158,15 @@ def level_badge(level_idx: int, title: str) -> None:
         "#ff44ff", "#ffffff",
     ]
     col = colour_map[min(level_idx, len(colour_map) - 1)]
-    html = f"""<div style="display:inline-block;background:#0e1230;border:1px solid {col};
-    border-radius:2px;padding:8px 16px;font-family:monospace;">
-    <span style="color:{col};font-size:1.2rem;">{sym} LVL {level_idx}</span>
-    <span style="color:{col}aa;font-size:0.9rem;margin-left:12px;">{title.upper()}</span>
-    </div>"""
-    st.markdown(html, unsafe_allow_html=True)
+    classic = (f"display:inline-block;background:#0e1230;border:1px solid {col};"
+               f"border-radius:2px;padding:8px 16px;font-family:monospace;")
+    attrs = _panel_attrs("badge", col, classic)
+    ttl = html.escape(str(title).upper())
+    inner = (
+        f'<span style="color:{col};font-size:1.2rem;">{sym} LVL {level_idx}</span>'
+        f'<span style="color:{col}aa;font-size:0.9rem;margin-left:12px;">{ttl}</span>'
+    )
+    st.markdown(f'<div {attrs}>{inner}</div>', unsafe_allow_html=True)
 
 
 def achievement_card(title_or_dict, description: str = "", category: str = "", unlocked: bool = False) -> None:
@@ -281,18 +183,25 @@ def achievement_card(title_or_dict, description: str = "", category: str = "", u
         xp_reward = 0
     border = "#ffd700" if unlocked else "#303050"
     icon = "◆" if unlocked else "◇"
-    colour = "#ffd700" if unlocked else "#404060"
-    text_col = "#b8b8d0" if unlocked else "#404060"
-    cat_str = f"<div style='color:#606080;font-size:0.62rem;'>{category.upper()}</div>" if category else ""
-    xp_str = f"<div style='color:#606080;font-size:0.62rem;'>+{xp_reward} XP</div>" if xp_reward else ""
-    html = (
-        f"<div style='background:#090e20;border:1px solid {border};border-radius:4px;"
-        f"padding:10px 14px;margin:4px 0;'>"
-        f"<div style='color:{colour};font-size:0.8rem;'>{icon} {title.upper()}</div>"
-        f"<div style='color:{text_col};font-size:0.7rem;margin-top:4px;'>{description}</div>"
+    # Locked tone lifted #404060 → #8a8aae for WCAG AA (the ◇ icon + gray-vs-gold
+    # title still distinguish locked from unlocked without relying on contrast).
+    colour = "#ffd700" if unlocked else "#8a8aae"
+    text_col = "#b8b8d0" if unlocked else "#8a8aae"
+    ttl = html.escape(str(title).upper())
+    desc = html.escape(str(description))
+    cat_str = (f"<div style='color:#8a8aae;font-size:0.62rem;'>{html.escape(str(category).upper())}</div>"
+               if category else "")
+    xp_str = f"<div style='color:#8a8aae;font-size:0.62rem;'>+{int(xp_reward)} XP</div>" if xp_reward else ""
+    classic = (f"background:#090e20;border:1px solid {border};border-radius:4px;"
+               f"padding:10px 14px;margin:4px 0;")
+    attrs = _panel_attrs("panel", border, classic)
+    markup = (
+        f"<div {attrs}>"
+        f"<div style='color:{colour};font-size:0.8rem;'>{icon} {ttl}</div>"
+        f"<div style='color:{text_col};font-size:0.7rem;margin-top:4px;'>{desc}</div>"
         f"{cat_str}{xp_str}</div>"
     )
-    st.markdown(html, unsafe_allow_html=True)
+    st.markdown(markup, unsafe_allow_html=True)
 
 
 def progress_badge(status: str) -> str:
@@ -320,10 +229,11 @@ def render_gpa_display(gpa: float) -> None:
     label = "Summa Cum Laude" if gpa >= 3.9 else "Magna Cum Laude" if gpa >= 3.7 else \
             "Cum Laude" if gpa >= 3.5 else "Dean's List" if gpa >= 3.0 else \
             "Good Standing" if gpa >= 2.0 else "Academic Probation"
+    attrs = _panel_attrs("card", colour, "font-family:monospace;")
     st.markdown(
-        f"<div style='font-family:monospace;'>"
+        f"<div {attrs}>"
         f"<span style='color:{colour};font-size:2.5rem;'>{gpa:.2f}</span>"
-        f"<span style='color:#606080;font-size:0.9rem;margin-left:12px;'>{label}</span>"
+        f"<span style='color:#8a8aae;font-size:0.9rem;margin-left:12px;'>{html.escape(label)}</span>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -363,12 +273,15 @@ def completion_burst(message: str = "QUEST COMPLETE") -> None:
         "◆══════◆",
         "▶══════◀",
     ])
+    classic = ("text-align:center;font-family:monospace;padding:20px;"
+               "background:#060812;border:2px solid #ffd700;border-radius:4px;")
+    attrs = _panel_attrs("celebration", "#ffd700", classic)
+    msg = html.escape(str(message))
     st.markdown(
-        f"<div style='text-align:center;font-family:monospace;padding:20px;"
-        f"background:#060812;border:2px solid #ffd700;border-radius:4px;'>"
+        f"<div {attrs}>"
         f"<div style='color:#ffd700;font-size:1.4rem;letter-spacing:4px;'>{burst}</div>"
         f"<div style='color:#00d4ff;font-size:1.8rem;letter-spacing:3px;margin:10px 0;'>"
-        f"{message}</div>"
+        f"{msg}</div>"
         f"<div style='color:#ffd700;font-size:1.4rem;letter-spacing:4px;'>{burst}</div>"
         f"</div>",
         unsafe_allow_html=True,
@@ -394,14 +307,16 @@ def degree_display(eligible: list[str]) -> None:
         return
     top = eligible[-1]
     sigil = DEGREE_SIGILS.get(top, "◇")
-    html = (
-        f"<div style='font-family:monospace;text-align:center;padding:16px;"
-        f"background:#090e20;border:1px solid #ffd700;border-radius:4px;'>"
+    classic = ("font-family:monospace;text-align:center;padding:16px;"
+               "background:#090e20;border:1px solid #ffd700;border-radius:4px;")
+    attrs = _panel_attrs("panel", "#ffd700", classic)
+    markup = (
+        f"<div {attrs}>"
         f"<div style='color:#ffd700;font-size:2rem;'>{sigil}</div>"
-        f"<div style='color:#ffd700;font-size:1.2rem;letter-spacing:3px;'>{top.upper()}</div>"
+        f"<div style='color:#ffd700;font-size:1.2rem;letter-spacing:3px;'>{html.escape(str(top).upper())}</div>"
         f"</div>"
     )
-    st.markdown(html, unsafe_allow_html=True)
+    st.markdown(markup, unsafe_allow_html=True)
 
 
 # ─── Help button ──────────────────────────────────────────────────────────────

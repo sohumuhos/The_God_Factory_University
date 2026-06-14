@@ -79,14 +79,28 @@ if state_key not in st.session_state or st.button("Reset to Original"):
 editable = st.session_state[state_key]
 n = len(editable)
 
+
+def _apply_overrides(scene_list):
+    """Translate the editor's duration_override_s into the renderer's duration_s.
+    A 0 override means 'use the original / TTS-detected length' (leave as-is)."""
+    out = []
+    for s in scene_list:
+        sc = dict(s)
+        ov = int(sc.get("duration_override_s", 0) or 0)
+        if ov > 0:
+            sc["duration_s"] = ov
+        sc.pop("duration_override_s", None)
+        out.append(sc)
+    return out
+
 for i, scene in enumerate(editable):
     with st.container():
         c0, c1, c2, c3 = st.columns([0.5, 4, 2, 0.5])
         with c0:
             st.markdown(f"<span style='color:#00d4ff;font-family:monospace;font-weight:bold;font-size:1.1rem;'>{i+1}</span>", unsafe_allow_html=True)
         with c1:
-            st.markdown(f"<span style='font-family:monospace;color:#e8e8ff;'>{scene.get('block_id','')}: {scene.get('ambiance_prompt','')[:80]}</span>", unsafe_allow_html=True)
-            narration_preview = scene.get("narration_script", "")[:120]
+            st.markdown(f"<span style='font-family:monospace;color:#e8e8ff;'>{scene.get('block_id','')}: {scene.get('visual_prompt','')[:80]}</span>", unsafe_allow_html=True)
+            narration_preview = scene.get("narration_prompt", "")[:120]
             st.markdown(f"<span style='font-family:monospace;color:#808099;font-size:0.8rem;'>{narration_preview}...</span>", unsafe_allow_html=True)
         with c2:
             new_dur = st.number_input(
@@ -118,7 +132,7 @@ with rd1:
     if st.button("Render Edited Timeline", use_container_width=True):
         modified_lec = dict(lec_data)
         modified_lec["video_recipe"] = dict(lec_data.get("video_recipe", {}))
-        modified_lec["video_recipe"]["scene_blocks"] = editable
+        modified_lec["video_recipe"]["scene_blocks"] = _apply_overrides(editable)
 
         with st.spinner("Rendering edited timeline..."):
             try:
@@ -135,7 +149,7 @@ with rd2:
     if export_btn:
         modified_lec = dict(lec_data)
         modified_lec["video_recipe"] = dict(lec_data.get("video_recipe", {}))
-        modified_lec["video_recipe"]["scene_blocks"] = editable
+        modified_lec["video_recipe"]["scene_blocks"] = _apply_overrides(editable)
         raw = json.dumps(modified_lec, indent=2)
         st.download_button(
             "Download Modified Lecture JSON",

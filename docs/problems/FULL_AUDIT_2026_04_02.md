@@ -4,6 +4,11 @@
 **Auditor:** GitHub Copilot  
 **Scope:** All features, pipeline integration, error logs, video rendering
 
+> **Follow-up 2026-06-13:** The video-rendering output issues (Section 2) were
+> re-diagnosed against real rendered frames and a Phase 1 fix pass was implemented
+> and verified. See `docs/problems/RENDER_FIXES_2026_06_13.md`. Note: items 2a, 2d,
+> 2e were already fixed in current code by the time of that pass.
+
 ---
 
 ## 1. Error Log Analysis

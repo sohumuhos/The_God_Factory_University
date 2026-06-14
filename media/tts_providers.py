@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import abc
 import importlib
+import importlib.util  # submodule must be imported explicitly for find_spec access
 import logging
 import sqlite3
 import subprocess
@@ -351,7 +352,13 @@ class Pyttsx3Provider(TTSProvider):
         try:
             import pyttsx3
             engine = pyttsx3.init()
-            engine.setProperty("rate", 165)
+            base_wpm = 165
+            try:
+                pct = int(str(rate).replace("%", "").replace("+", "").strip() or "0")
+                wpm = int(base_wpm * (1 + pct / 100.0))
+            except Exception:
+                wpm = base_wpm
+            engine.setProperty("rate", max(80, min(300, wpm)))
             engine.save_to_file(text, str(out_path))
             engine.runAndWait()
             return out_path.exists() and out_path.stat().st_size > 100

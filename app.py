@@ -3,6 +3,7 @@ The God Factory University — main entry point / Dashboard.
 Handles: page config, theme injection, first-run data bootstrap, sidebar.
 """
 
+import html
 import json
 import sys
 import time
@@ -109,17 +110,32 @@ def _render_nav_groups(active_mode: str) -> None:
             for page, label in links:
                 st.page_link(page, label=f"  {label}")
 
-# ─── First-run: auto-import the built-in CS/AI course ───────────────────────
-NOTES_FILE = ROOT / "notes.txt"
-if NOTES_FILE.exists() and not get_all_courses():
-    raw = NOTES_FILE.read_text(encoding="utf-8").strip()
-    if raw.startswith("{"):
-        try:
-            imported, _ = bulk_import_json(raw)
-            if imported:
-                st.toast(f"Auto-imported built-in CS/AI course ({imported} objects loaded)")
-        except Exception:
-            pass
+# ─── First-run: auto-import the built-in curriculum ─────────────────────────
+# Loads the integrated CS/AI course (notes.txt) AND the full K-12 + college
+# curriculum catalog under data/curriculum/. Previously only notes.txt was
+# imported, so a fresh database showed a single course instead of the whole
+# catalog (data/curriculum/ holds ~82 subject courses by grade/year).
+if not get_all_courses():
+    _imported_total = 0
+    _notes = ROOT / "notes.txt"
+    if _notes.exists():
+        _raw = _notes.read_text(encoding="utf-8").strip()
+        if _raw.startswith("{"):
+            try:
+                _n, _ = bulk_import_json(_raw)
+                _imported_total += _n
+            except Exception:
+                pass
+    _curr_dir = ROOT / "data" / "curriculum"
+    if _curr_dir.exists():
+        for _jf in sorted(_curr_dir.rglob("*.json")):
+            try:
+                _n, _ = bulk_import_json(_jf.read_text(encoding="utf-8"))
+                _imported_total += _n
+            except Exception:
+                pass
+    if _imported_total:
+        st.toast(f"Auto-imported built-in curriculum ({_imported_total} courses loaded)")
 
 # ─── Sidebar ─────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -321,12 +337,17 @@ if not courses:
     st.warning("No courses found. Go to Library > Bulk Import and paste a course JSON.")
 else:
     for course in courses[:8]:
+        # Escape user-pasted course fields — they flow from bulk-imported JSON into
+        # an unsafe_allow_html sink, which would otherwise be a stored-XSS vector.
+        c_id = html.escape(str(course["id"]))
+        c_title = html.escape(str(course["title"]))
+        c_credits = html.escape(str(course["credits"]))
         st.markdown(
             f"<div style='background:#0e1230;border-left:3px solid #00d4ff;"
             f"padding:8px 16px;margin:4px 0;font-family:monospace;'>"
-            f"<span style='color:#00d4ff;'>{course['id']}</span>"
-            f"<span style='color:#b8b8d0;margin-left:12px;'>{course['title']}</span>"
-            f"<span style='color:#ffd700;margin-left:12px;'> {course['credits']} cr</span>"
+            f"<span style='color:#00d4ff;'>{c_id}</span>"
+            f"<span style='color:#b8b8d0;margin-left:12px;'>{c_title}</span>"
+            f"<span style='color:#ffd700;margin-left:12px;'> {c_credits} cr</span>"
             f"</div>",
             unsafe_allow_html=True,
         )

@@ -229,11 +229,23 @@ Output JSON: {{"term": "{term}", "overview": "...", "history": "...", "open_prob
     def enhance_video_prompts(self, lecture_data: dict):
         title = lecture_data.get("title", "")
         scenes = lecture_data.get("video_recipe", {}).get("scene_blocks", [])
-        prompt = f"""Enhance these video generation prompts for: "{title}"
-Current scenes: {json.dumps(scenes, indent=2)}
-Output enhanced JSON replacing 'visual_prompt' and 'ambiance' in each scene with richer,
-more cinematic and educational descriptions. Preserve all other fields.
-Output ONLY valid JSON array of scene_blocks."""
+        prompt = f"""You are designing the on-screen VISUALS for an educational video: "{title}".
+Choose the clearest deterministic slide for each scene. Works for ANY subject.
+
+Current scenes (JSON): {json.dumps(scenes, indent=2)}
+
+For EACH scene keep all existing fields and ADD:
+- "render_mode": one of "bullets", "diagram", or "chart" — whichever best fits that
+  scene's content; use "bullets" when unsure.
+- "visual": the data for that mode:
+    bullets -> {{"heading": "short title", "bullets": ["concise point", ...]}}   (<=4 points, each <=8 words)
+    diagram -> {{"heading": "short title", "nodes": ["step", "step", ...]}}       (2-5 short labels, a left-to-right flow)
+    chart   -> {{"heading": "short title", "bars": [{{"label": "name", "value": N}}, ...]}}
+Keep every heading/label SHORT so it fits on a slide. The visual must COMPLEMENT the
+narration (key points / structure), not repeat it word-for-word. Do not change
+narration_prompt.
+
+Output ONLY a valid JSON array of the updated scene_blocks."""
         cfg = self._cfg()
         result = simple_complete(cfg, prompt)
         save_llm_generated(result, "enhanced_prompts")

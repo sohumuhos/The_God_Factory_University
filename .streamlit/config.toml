@@ -1,0 +1,15 @@
+# The God Factory University — Streamlit base configuration.
+#
+# base="dark" matters for BOTH themes: widgets that paint to a <canvas> or use
+# Streamlit's built-in palette (notably st.dataframe / glide-data-grid, date &
+# time pickers) cannot be recolored by injected CSS. Without a dark base they
+# default to LIGHT and render as bright opaque blocks — especially jarring inside
+# the frosted glass theme. These colors match the dark-academic palette so the
+# native foundation is consistent under both the classic and glass stylesheets.
+[theme]
+base = "dark"
+primaryColor = "#00d4ff"
+backgroundColor = "#060812"
+secondaryBackgroundColor = "#0e1230"
+textColor = "#b8b8d0"
+font = "monospace"

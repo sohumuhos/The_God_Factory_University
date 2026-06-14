@@ -231,7 +231,8 @@ def do_batch_render(queue_snapshot, fps, res_w, res_h, do_enrich=False):
                 log.append(f"[LLM-ERR] {lec_row['title']}: {e}")
 
         try:
-            render_lecture(lec_data, EXPORT_DIR, fps=fps, width=res_w, height=res_h)
+            render_lecture(lec_data, EXPORT_DIR, fps=fps, width=res_w, height=res_h,
+                           should_continue=lambda: not _shared.get("abort"))
             log.append(f"[OK]  {lec_row['title']}")
         except Exception as e:
             log.append(f"[ERR] {lec_row['title']}: {e}")

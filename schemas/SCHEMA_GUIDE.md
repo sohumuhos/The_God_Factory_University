@@ -111,6 +111,45 @@ for every scene in every lecture.
 
 ---
 
+## Programmatic Scene Visuals (deterministic, no diffusion)
+
+A scene may request a clean, topic-accurate **slide** rendered by the app (PIL, no
+network) instead of a diffusion image. Add `render_mode` and a structured `visual`
+spec to the scene block. These are precise and legible — preferred for instructional
+content. All fields are optional and backward compatible.
+
+`render_mode` values:
+- `"bullets"` / `"concept"` — heading + bullet list. `visual.bullets` (≤6 strings).
+- `"diagram"` — left-to-right flow of labelled boxes joined by arrows. `visual.nodes` (≤6).
+- `"chart"` — simple bar chart. `visual.bars` = `[{ "label": "...", "value": N }, ...]`.
+- `"diffusion"` — **full-bleed** AI image from `visual_prompt` with the cinematic HUD
+  (Ken Burns + overlays). Explicit opt-in for an image-only scene.
+- `"gradient"` — force the dark dashboard background (no image).
+- absent / `"auto"` — a clean slide is rendered automatically (bullets inferred from the
+  lecture's terms/objectives/narration). This is the default for **any** subject.
+
+**Hybrid slide + image.** For any slide scene (bullets/concept/diagram-less/auto), if AI
+backgrounds are enabled **and** the scene has a `visual_prompt` **and** an image provider
+returns a picture, that image is composited into the slide as a framed inset (a two-column
+"figure" look) — the best of both: reliable on-topic layout plus a real picture when one is
+available. If diffusion is off, unconfigured, or fails, the slide simply renders without the
+inset — no figure is ever required. (Charts and flow-diagrams ignore the inset; they are
+already self-contained visuals.)
+
+`visual.heading` overrides the slide title (defaults to the lecture title). The live
+narration is drawn as a bottom subtitle over the slide. Example:
+
+```json
+{
+  "block_id": "B", "duration_s": 60, "render_mode": "diagram",
+  "narration_prompt": "Each call waits for the next and unwinds at the base case.",
+  "visual": { "heading": "Unwinding the call stack",
+              "nodes": ["f(3)", "f(2)", "f(1)", "base case"] }
+}
+```
+
+---
+
 ## Degree & Credit System
 
 | Degree       | Min Credits | Min GPA |
