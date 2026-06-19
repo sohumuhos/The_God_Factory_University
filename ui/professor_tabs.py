@@ -105,6 +105,61 @@ def render_professor_chat_tab(*, get_professor, get_chat_history, save_chat_hist
     st.rerun()
 
 
+def render_office_hours_tab(*, get_professor, add_xp) -> None:
+    """Voice 'Office Hours': record a question, transcribe, answer in voice + text."""
+    section_divider("Office Hours")
+    help_button("professor-chat")
+    st.caption(
+        "Speak with Professor Ileices — record a question and he answers in voice and text. "
+        "Transcription uses free Groq Whisper (or OpenAI); set your provider key in Settings."
+    )
+    session_id = st.session_state.get("chat_session_id", "main")
+    audio = st.audio_input("Record your question")
+    if audio is None:
+        return
+    if not st.button("Ask the Professor", key="office_hours_ask", use_container_width=True):
+        return
+
+    audio_bytes = audio.getvalue() if hasattr(audio, "getvalue") else audio.read()
+    from media.stt import transcribe
+    with st.spinner("Transcribing your question…"):
+        tr = transcribe(audio_bytes, "question.wav")
+    if tr.get("error"):
+        st.error(tr["error"])
+        return
+    question = (tr.get("text") or "").strip()
+    if not question:
+        st.warning("Didn't catch that — try recording again.")
+        return
+
+    st.markdown(f"**You:** {question}")
+    with st.spinner("Professor Ileices is thinking…"):
+        try:
+            resp = get_professor(session_id=session_id).ask(question)
+            answer = getattr(resp, "raw_text", "") or str(resp)
+        except Exception as exc:
+            st.error(f"Professor offline: {exc}")
+            return
+    st.markdown("**Professor Ileices:**")
+    st.markdown(sanitize_llm_output(answer))
+    add_xp(5, "Office Hours with the Professor", "office_hours")
+
+    # Voice the reply with the configured neural TTS voice.
+    try:
+        import tempfile
+        from pathlib import Path
+        from media.audio_engine import synth_tts
+        from core.database import get_setting
+        voice = get_setting("tts_voice", "en-US-AriaNeural")
+        out_path = Path(tempfile.gettempdir()) / "gfu_office_hours_reply.mp3"
+        synth_tts(answer[:1500], out_path, voice_id=voice)
+        if out_path.exists():
+            st.markdown("**Spoken reply:**")
+            st.audio(str(out_path))
+    except Exception as exc:
+        st.caption(f"(Voice reply unavailable: {exc})")
+
+
 def render_curriculum_tab(*, get_professor, get_all_courses, get_modules,
                           bulk_import_json, add_xp, unlock_achievement) -> None:
     section_divider("Curriculum Generator")

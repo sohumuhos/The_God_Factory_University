@@ -23,6 +23,7 @@ from ui.professor_tabs import (
     render_curriculum_tab,
     render_grade_tab,
     render_history_tab,
+    render_office_hours_tab,
     render_professor_chat_tab,
     render_quiz_tab,
     render_rabbit_hole_tab,
@@ -79,8 +80,9 @@ def get_professor(session_id: str = "main"):
     return Professor(session_id=session_id)
 
 # ─── Action tabs ─────────────────────────────────────────────────────────────
-tab_chat, tab_gen, tab_grade, tab_quiz, tab_rabbit, tab_audit, tab_history, tab_guide = st.tabs([
+tab_chat, tab_office, tab_gen, tab_grade, tab_quiz, tab_rabbit, tab_audit, tab_history, tab_guide = st.tabs([
     "Chat",
+    "Office Hours",
     "Generate Curriculum",
     "Grade Work",
     "Create Quiz",
@@ -100,6 +102,9 @@ with tab_chat:
         provider=provider,
         model=model,
     )
+
+with tab_office:
+    render_office_hours_tab(get_professor=get_professor, add_xp=add_xp)
 
 with tab_gen:
     render_curriculum_tab(
