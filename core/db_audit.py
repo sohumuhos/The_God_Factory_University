@@ -351,3 +351,13 @@ def list_remediation_backlog(tx_func, status: str = "open", limit: int = 50) -> 
             (status, limit),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def resolve_remediation_item(item_id: int, status: str, tx_func) -> bool:
+    """Update a remediation item's status (e.g. 'resolved'). Returns True if a row changed."""
+    with tx_func() as con:
+        cur = con.execute(
+            "UPDATE remediation_backlog SET status=?, updated_at=? WHERE id=?",
+            (status, time.time(), int(item_id)),
+        )
+        return cur.rowcount > 0

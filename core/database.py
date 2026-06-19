@@ -107,6 +107,7 @@ from core.db_audit import (
     fail_audit_job as _fail_audit_job_raw,
     add_remediation_item as _add_remediation_item_raw,
     list_remediation_backlog as _list_remediation_backlog_raw,
+    resolve_remediation_item as _resolve_remediation_item_raw,
 )
 from core.university import create_tables as _create_university_tables
 from core.course_tree import (
@@ -636,6 +637,11 @@ fail_audit_job = _ai_facade["fail_audit_job"]
 add_remediation_item = _ai_facade["add_remediation_item"]
 list_remediation_backlog = _ai_facade["list_remediation_backlog"]
 bulk_import_json = _ai_facade["bulk_import_json"]
+
+
+def resolve_remediation_item(item_id: int, status: str = "resolved") -> bool:
+    """Mark a remediation backlog item resolved (or any status). Returns True if changed."""
+    return _resolve_remediation_item_raw(item_id, status, tx)
 
 
 # ─── Weekly Quests (delegated to db_quests.py) ──────────────────────────────────

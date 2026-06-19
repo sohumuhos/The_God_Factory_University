@@ -45,11 +45,11 @@ def propose_next_action(max_items: int = 4) -> list[dict]:
             "label": f"Close {len(weaknesses)} weak area(s)",
             "reason": "Open remediation: " + "; ".join(weaknesses[:2]),
             "task_text": (
-                "Review the student's open remediation backlog. For each weakness, "
-                "create a short remedial lecture (or a targeted quiz) that closes the "
-                "gap, then mark the item addressed. Weaknesses: " + "; ".join(weaknesses[:5])
+                "Review the student's open remediation backlog (get_remediation_backlog). "
+                "For each weakness, call create_remedial_lecture to mint a short re-teach "
+                "lecture and resolve the item. Weaknesses: " + "; ".join(weaknesses[:5])
             ),
-            "categories": ["utility", "course", "grading"],
+            "categories": ["utility", "course", "grading", "remediation"],
             "priority": 1,
         })
 
