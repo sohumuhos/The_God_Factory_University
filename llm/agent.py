@@ -46,7 +46,8 @@ class AgentConfig:
     max_steps: int = 20
     review_mode: ReviewMode = ReviewMode.AUTO
     rate_limit_delay: float = 1.0  # seconds between LLM calls
-    tool_categories: list[str] = field(default_factory=lambda: ["course", "video", "utility"])
+    tool_categories: list[str] = field(
+        default_factory=lambda: ["course", "video", "utility", "grading", "progression"])
     task_description: str = ""
 
 
@@ -523,7 +524,7 @@ def create_job(task: str, mode: str = "bounded", max_steps: int = 20,
         mode=AgentMode(mode),
         max_steps=max_steps,
         review_mode=ReviewMode(review),
-        tool_categories=categories or ["course", "video", "utility"],
+        tool_categories=categories or ["course", "video", "utility", "grading", "progression"],
         task_description=task,
     )
     job = AgentJob(job_id=job_id, config=config)
