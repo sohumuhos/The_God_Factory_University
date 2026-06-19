@@ -60,6 +60,7 @@ NAV_GROUPS = [
             ("pages/14_Programs.py", "[>] Programs"),
             ("pages/15_Profile.py", "[>] My Profile"),
             ("pages/16_Statistics.py", "[>] Statistics"),
+            ("pages/22_Knowledge_Galaxy.py", "[*] Knowledge Galaxy"),
         ],
     ),
     (
