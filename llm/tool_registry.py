@@ -63,12 +63,21 @@ def get_schemas(category: str | None = None) -> list[dict]:
 
 
 def call_tool(name: str, args: dict) -> dict:
-    """Execute a tool by name. Returns {'ok': bool, 'result': ...}."""
+    """Execute a tool by name. Returns {'ok': bool, 'result': ...}.
+
+    If the handler itself returns a dict carrying a truthy ``error`` key, the
+    call is reported as a failure (``ok=False``) with that error surfaced at the
+    top level. Without this, the agent loop's consecutive-error circuit breaker
+    (which inspects the outer dict's ``error``) never trips on tool-internal
+    failures — only on raised exceptions.
+    """
     tool = get_tool(name)
     if not tool:
         return {"ok": False, "error": f"Unknown tool: {name}"}
     try:
         result = tool.handler(**args)
-        return {"ok": True, "result": result}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+    if isinstance(result, dict) and result.get("error"):
+        return {"ok": False, "error": str(result["error"]), "result": result}
+    return {"ok": True, "result": result}

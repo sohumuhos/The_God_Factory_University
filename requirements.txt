@@ -22,3 +22,8 @@ requests==2.32.3
 # ── System utilities ───────────────────────────────────────────────────────
 psutil==5.9.8
 jsonschema==4.22.0
+
+# ── Security ───────────────────────────────────────────────────────────────
+# Enables real Fernet encryption of API keys at rest (core/secrets.py).
+# Without it, keys fall back to base64 obfuscation only.
+cryptography==49.0.0

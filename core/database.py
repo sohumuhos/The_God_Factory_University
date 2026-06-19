@@ -148,6 +148,10 @@ def _conn() -> sqlite3.Connection:
     con = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys=ON")
+    # Wait up to 5s for a competing writer instead of raising 'database is
+    # locked' immediately — required now that the agent tools, the 24/7
+    # continuous engine, and the Streamlit UI can all write concurrently.
+    con.execute("PRAGMA busy_timeout=5000")
     con.row_factory = sqlite3.Row
     return con
 
@@ -355,6 +359,16 @@ _MIGRATIONS: list[tuple[int, str, str]] = [
     (4, "add assessment time tracking to assignments",
      "ALTER TABLE assignments ADD COLUMN started_at REAL;\n"
      "ALTER TABLE assignments ADD COLUMN duration_s REAL DEFAULT 0;"),
+    (5, "hot-path indexes on foreign-key / lookup columns",
+     "CREATE INDEX IF NOT EXISTS idx_modules_course ON modules(course_id);\n"
+     "CREATE INDEX IF NOT EXISTS idx_lectures_module ON lectures(module_id);\n"
+     "CREATE INDEX IF NOT EXISTS idx_lectures_course ON lectures(course_id);\n"
+     "CREATE INDEX IF NOT EXISTS idx_progress_lecture ON progress(lecture_id);\n"
+     "CREATE INDEX IF NOT EXISTS idx_assignments_course ON assignments(course_id);\n"
+     "CREATE INDEX IF NOT EXISTS idx_assignments_lecture ON assignments(lecture_id);\n"
+     "CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id);\n"
+     "CREATE INDEX IF NOT EXISTS idx_xp_events_time ON xp_events(occurred_at);\n"
+     "CREATE INDEX IF NOT EXISTS idx_quests_week ON quests(week_start);"),
 ]
 
 

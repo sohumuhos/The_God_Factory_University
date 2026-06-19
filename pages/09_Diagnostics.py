@@ -50,6 +50,14 @@ with col2:
         st.markdown(f"DB size: **{db_path.stat().st_size / 1024:.1f} KB**")
     else:
         st.warning("university.db not found")
+    from core.secrets import _HAS_FERNET
+    if _HAS_FERNET:
+        st.markdown("API-key encryption: **Fernet (active)**")
+    else:
+        st.warning(
+            "API keys are stored with base64 obfuscation only — run "
+            "`pip install cryptography` for real encryption at rest."
+        )
 
 
 # ─── Dependency Versions ─────────────────────────────────────────────────────
@@ -58,7 +66,7 @@ section_divider("Dependencies")
 DEPS = [
     "streamlit", "moviepy", "imageio", "imageio_ffmpeg", "PIL",
     "numpy", "scipy", "edge_tts", "pyttsx3", "openai", "anthropic",
-    "httpx", "requests", "psutil",
+    "httpx", "requests", "psutil", "cryptography",
 ]
 
 dep_rows = []

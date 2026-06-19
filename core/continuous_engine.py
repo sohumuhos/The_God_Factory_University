@@ -33,9 +33,7 @@ DB_PATH = Path(__file__).resolve().parent.parent / "university.db"
 
 def _ensure_version_table() -> None:
     """Create the enrichment_versions table if it doesn't exist."""
-    import sqlite3
-    con = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    try:
+    with tx() as con:
         con.execute("""
             CREATE TABLE IF NOT EXISTS enrichment_versions (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,58 +50,41 @@ def _ensure_version_table() -> None:
             CREATE INDEX IF NOT EXISTS idx_ev_course
             ON enrichment_versions(course_id, lecture_id)
         """)
-        con.commit()
-    finally:
-        con.close()
 
 
 def _next_version(course_id: str, lecture_id: str) -> int:
     """Get the next version number for a lecture."""
-    import sqlite3
-    con = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    try:
+    with tx() as con:
         row = con.execute(
             "SELECT MAX(version_num) FROM enrichment_versions WHERE course_id=? AND lecture_id=?",
             (course_id, lecture_id),
         ).fetchone()
-        return (row[0] or 0) + 1
-    finally:
-        con.close()
+    return (row[0] or 0) + 1
 
 
 def save_version(course_id: str, lecture_id: str,
                  narration_snapshot: str, enrichment_type: str = "llm_enrich") -> int:
     """Save a new enrichment version. Returns the version number."""
-    import sqlite3
     ver = _next_version(course_id, lecture_id)
     parent = ver - 1 if ver > 1 else None
-    con = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    try:
+    with tx() as con:
         con.execute(
             "INSERT INTO enrichment_versions "
             "(course_id, lecture_id, version_num, narration_snapshot, created_at, parent_version, enrichment_type) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (course_id, lecture_id, ver, narration_snapshot, time.time(), parent, enrichment_type),
         )
-        con.commit()
-        return ver
-    finally:
-        con.close()
+    return ver
 
 
 def get_versions(course_id: str, lecture_id: str) -> list[dict]:
     """Get all enrichment versions for a lecture, newest first."""
-    import sqlite3
-    con = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-    con.row_factory = sqlite3.Row
-    try:
+    with tx() as con:
         rows = con.execute(
             "SELECT * FROM enrichment_versions WHERE course_id=? AND lecture_id=? ORDER BY version_num DESC",
             (course_id, lecture_id),
         ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        con.close()
+    return [dict(r) for r in rows]
 
 
 # ── Engine configuration ─────────────────────────────────────────────────────

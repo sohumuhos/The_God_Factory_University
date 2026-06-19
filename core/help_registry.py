@@ -349,6 +349,27 @@ _reg("xp-events", "XP Events",
      "**Streak bonus**: +5% per consecutive day (max +50% at 10-day streak).\n"
      "View your complete XP history on the Achievements page.")
 
+_reg("quest-system", "Weekly Quests",
+     "Quests are time-boxed challenges that refresh every week and award bonus XP "
+     "on completion.\n\n"
+     "- A fresh set is seeded automatically the first time you open the Quests page "
+     "each week (`seed_weekly_quests`).\n"
+     "- Each quest tracks **progress / target** (e.g. complete 3 lectures, earn 200 XP) "
+     "and is ticked automatically as you study — no manual check-off.\n"
+     "- Finishing a quest grants its XP reward and counts toward achievements.\n\n"
+     "Quests reset at the start of each week; unfinished ones do not carry over.")
+
+_reg("scribe-submission", "Scribe Credit",
+     "The Scribe system lets you earn credit for transcribing or summarising a lecture "
+     "in your own words.\n\n"
+     "- Write your notes in the Scribe box on the Lecture Studio page and submit "
+     "(`save_scribe`).\n"
+     "- Your running word count accumulates per lecture; once it crosses the "
+     "completion threshold the scribe is marked complete (`scribe_complete`).\n"
+     "- Completed scribes contribute to mastery evidence and XP.\n\n"
+     "Scribing is an active-recall exercise — restating material in your own words "
+     "reinforces retention far more than passive watching.")
+
 # ─── LLM Setup Wizard ─────────────────────────────────────────────────────────
 _reg("llm-setup-wizard", "LLM Setup Wizard",
      "A guided walkthrough for configuring your AI model provider.\n\n"

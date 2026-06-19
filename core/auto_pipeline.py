@@ -121,14 +121,24 @@ def _step_generate(config: PipelineConfig, status: PipelineStatus,
             _log(status, f"[GENERATE] ERROR: {status.error}", cb)
             return
 
-    from core.database import bulk_import_json
-    ids = bulk_import_json(course_json)
-    if ids:
-        status.created_course_ids.extend(ids)
-        config.course_ids.extend(ids)
-        _log(status, f"[GENERATE] OK — imported {len(ids)} course(s): {ids}", cb)
+    # bulk_import_json expects a JSON *string* and returns (imported_count,
+    # errors) — NOT a list of ids. Derive the new course ids by diffing the
+    # course table before/after the import (robust to how ids are assigned).
+    from core.database import bulk_import_json, get_all_courses
+    course_str = course_json if isinstance(course_json, str) else json.dumps(course_json)
+    before_ids = {c["id"] for c in get_all_courses()}
+    imported, errors = bulk_import_json(course_str)
+    new_ids = sorted({c["id"] for c in get_all_courses()} - before_ids)
+    if imported and new_ids:
+        status.created_course_ids.extend(new_ids)
+        config.course_ids.extend(new_ids)
+        _log(status, f"[GENERATE] OK — imported {imported} course(s): {new_ids}", cb)
+    elif imported:
+        _log(status, f"[GENERATE] OK — imported/updated {imported} object(s) (no new course id)", cb)
     else:
-        _log(status, "[GENERATE] WARN: Import returned no IDs", cb)
+        msg = "; ".join(errors[:3]) if errors else "no objects imported"
+        status.error = f"Course import failed: {msg}"
+        _log(status, f"[GENERATE] ERROR: {status.error}", cb)
     _sleep(config)
 
 

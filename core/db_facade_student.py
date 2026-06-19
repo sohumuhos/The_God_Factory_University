@@ -4,6 +4,17 @@ from __future__ import annotations
 import time
 from datetime import datetime, timedelta
 
+from core.secrets import decrypt, encrypt, is_encrypted
+
+
+# Setting keys whose values are credentials and must be stored encrypted at rest.
+_SECRET_KEY_SUFFIXES = ("_api_key", "_token", "_secret", "_password")
+
+
+def _is_secret_key(key: str) -> bool:
+    k = key.lower()
+    return k.endswith(_SECRET_KEY_SUFFIXES) or "api_key" in k
+
 
 LEVELS = [
     (0, "Seeker"),
@@ -38,11 +49,28 @@ def make_student_facade(*,
     def get_setting(key: str, default: str = "") -> str:
         with tx() as con:
             row = con.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
-        return row["value"] if row else default
+        if not row:
+            return default
+        value = row["value"]
+        if _is_secret_key(key) and is_encrypted(value):
+            try:
+                return decrypt(value)
+            except Exception:
+                return value
+        return value
 
     def set_setting(key: str, value: str) -> None:
+        stored = str(value)
+        # Encrypt credential-bearing settings at rest. Self-migrating: legacy
+        # plaintext values are passed through by decrypt() on read, and get
+        # re-encrypted the next time they are written.
+        if stored and _is_secret_key(key) and not is_encrypted(stored):
+            try:
+                stored = encrypt(stored)
+            except Exception:
+                pass
         with tx() as con:
-            con.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, str(value)))
+            con.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, stored))
 
     def get_xp() -> int:
         return int(get_setting("xp_total", "0"))
