@@ -313,9 +313,18 @@ def run_agent(
     for cat in job.config.tool_categories:
         all_tools.extend(get_schemas(cat))
 
-    # Build system prompt
+    # Build system prompt, grounded in current student state so the agent's
+    # tool decisions are context-aware even before it calls a read tool.
+    base_prompt = AGENT_SYSTEM_BASE.format(task_description=job.config.task_description)
+    try:
+        from llm.tools_student import build_student_state_block
+        state_block = build_student_state_block()
+        if state_block:
+            base_prompt += "\n\n" + state_block
+    except Exception:
+        pass
     system_prompt = build_system_prompt(
-        AGENT_SYSTEM_BASE.format(task_description=job.config.task_description),
+        base_prompt,
         all_tools if not small else all_tools[:10],  # Limit tools for small models
         cfg,
     )

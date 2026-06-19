@@ -16,6 +16,7 @@ import llm.tools_course  # noqa: F401
 import llm.tools_video  # noqa: F401
 import llm.tools_utility  # noqa: F401
 import llm.tools_enrichment  # noqa: F401
+import llm.tools_student  # noqa: F401
 
 __all__ = [
     "Tool",
