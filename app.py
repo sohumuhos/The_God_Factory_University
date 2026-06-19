@@ -209,6 +209,11 @@ st.caption(
     f"activity credits {academic_summary['activity_credits']:.2f}"
 )
 
+# ─── Professor Suggests (proactive controller) ────────────────────────────────
+# Reads student state and offers one-click, review-gated agent jobs.
+from ui.proactive_panel import render_proactive_panel
+render_proactive_panel(key_prefix="dash", max_items=3, heading="Professor Suggests")
+
 audit_jobs = list_audit_jobs(limit=5)
 if audit_jobs:
     section_divider("Audit Queue")

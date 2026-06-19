@@ -27,6 +27,62 @@ from core.course_tree import (
 class ProfessorWorkflowMixin:
     """Curriculum and academic workflow operations."""
 
+    # ── Professor → Agent bridge ─────────────────────────────────────────────
+    def dispatch_agent_job(self, task: str, categories: list[str] | None = None,
+                           mode: str = "bounded", max_steps: int = 12,
+                           review: str = "auto") -> str:
+        """Launch an autonomous agent job in the background and return its job_id.
+
+        This is the reverse bridge that makes the chat Professor the single front
+        door: a natural-language task becomes a crash-recoverable agent job. The
+        job runs on a daemon thread (same idiom as auto_pipeline.run_pipeline_async)
+        and persists its state to disk, so the Agent page can monitor it.
+        """
+        import threading
+        from llm.agent import create_job, run_agent
+
+        job = create_job(task, mode=mode, max_steps=max_steps,
+                         review=review, categories=categories)
+
+        def _worker():
+            try:
+                run_agent(job)
+            except Exception:
+                pass  # state + error are persisted by run_agent/save_job
+
+        threading.Thread(target=_worker, daemon=True).start()
+        return job.job_id
+
+    def summarize_job(self, job_id: str):
+        """Narrate an agent job's outcome back into chat-friendly prose."""
+        from llm.agent import load_job
+
+        job = load_job(job_id)
+        if not job:
+            return self._wrap("", provider="", expect_json=False)
+
+        lines = []
+        for s in job.steps[-12:]:
+            if s.action == "tool_call":
+                lines.append(f"called {s.tool_name}({json.dumps(s.tool_args)[:120]})")
+            elif s.action == "tool_result":
+                lines.append(f"  -> {str(s.content)[:160]}")
+            elif s.action == "done":
+                lines.append(f"DONE: {str(s.content)[:200]}")
+            elif s.action == "error":
+                lines.append(f"ERROR: {str(s.content)[:160]}")
+        transcript = "\n".join(lines) or "(no steps recorded)"
+
+        cfg = self._cfg()
+        prompt = (
+            f"You are Professor Ileices. An autonomous agent job you dispatched "
+            f"('{job.config.task_description}') finished with status '{job.status}'. "
+            f"In 2-4 plain sentences, tell the student what was accomplished and what "
+            f"to do next. Do not invent results beyond the log.\n\nAgent log:\n{transcript}"
+        )
+        raw = simple_complete(cfg, prompt)
+        return self._wrap(raw, cfg.provider, expect_json=False)
+
     def chunked_curriculum(self, topics: str, level: str = "undergraduate", lectures_per_module: int = 3, progress_callback=None):
         """Generate curriculum in chunks: outline -> modules -> lectures."""
         cfg = self._cfg()

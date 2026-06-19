@@ -40,6 +40,37 @@ def render_professor_chat_tab(*, get_professor, get_chat_history, save_chat_hist
     session_id = st.session_state["chat_session_id"]
     history = get_chat_history(session_id)
 
+    # ── Delegate to the autonomous agent (Professor → Agent bridge) ────────────
+    with st.expander("Delegate a task to the Agent", expanded=False):
+        st.caption(
+            "Hand a multi-step job to Professor Ileices' autonomous agent — grading, "
+            "course building, enrichment, quests, and more. It runs in the background; "
+            "watch it on the AI Agent page."
+        )
+        deleg_task = st.text_area(
+            "Task", key="prof_delegate_task", height=80,
+            placeholder="e.g. Grade my last essay, then build a remedial lecture on my weakest topic.",
+        )
+        dc1, dc2 = st.columns([1, 2])
+        with dc1:
+            review_it = st.checkbox(
+                "Review writes", value=True, key="prof_delegate_review",
+                help="Queue any changes for your approval on the Agent page.",
+            )
+        with dc2:
+            if st.button("Delegate to Agent", key="prof_delegate_btn", use_container_width=True):
+                if deleg_task.strip():
+                    try:
+                        job_id = get_professor(session_id=session_id).dispatch_agent_job(
+                            deleg_task.strip(), mode="bounded", max_steps=15,
+                            review="review" if review_it else "auto",
+                        )
+                        st.success(f"Delegated (job {job_id[:8]}). Open the AI Agent page to monitor.")
+                    except Exception as exc:
+                        st.error(f"Could not delegate: {exc}")
+                else:
+                    st.warning("Enter a task to delegate.")
+
     chat_box = st.container()
     with chat_box:
         for msg in history[-40:]:

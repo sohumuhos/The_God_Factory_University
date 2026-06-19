@@ -106,6 +106,12 @@ with col_stop:
         st.session_state.agent_running = False
         st.info("Stop signal sent — agent will halt after the current step.")
 
+# ─── Suggested Next Actions (proactive controller) ───────────────────────────
+# One-click, review-gated jobs derived from current student state. Launched in
+# the background; watch them in Job History below and approve any drafts.
+from ui.proactive_panel import render_proactive_panel
+render_proactive_panel(key_prefix="agent", max_items=4, heading="Suggested Next Actions")
+
 
 # ─── Active job execution ────────────────────────────────────────────────────
 if st.session_state.agent_running and st.session_state.agent_current_job_id:
