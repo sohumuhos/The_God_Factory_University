@@ -20,6 +20,8 @@ import llm.tools_student  # noqa: F401
 import llm.tools_grading  # noqa: F401
 import llm.tools_progression  # noqa: F401
 import llm.tools_orchestration  # noqa: F401
+import llm.tools_admin  # noqa: F401
+import llm.tools_assessment  # noqa: F401
 
 __all__ = [
     "Tool",

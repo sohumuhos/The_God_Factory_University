@@ -54,12 +54,16 @@ with st.sidebar:
     )
     rate_limit = st.slider("Rate Limit (seconds)", 0.0, 10.0, 1.0, 0.5)
 
-    # Tool category selection
+    # Tool category selection. Powerful categories (settings/enrollment writes,
+    # whole-pipeline runs, content authoring) are opt-in: unchecked by default.
     st.markdown("**Tool Categories**")
+    POWERFUL_CATS = {"admin", "pipeline", "assessment"}
     all_cat = sorted(set(t.category for t in list_tools()))
     selected_cats = []
     for cat in all_cat:
-        if st.checkbox(cat.title(), value=True, key=f"cat_{cat}"):
+        default_on = cat not in POWERFUL_CATS
+        label = cat.title() + (" ⚠" if cat in POWERFUL_CATS else "")
+        if st.checkbox(label, value=default_on, key=f"cat_{cat}"):
             selected_cats.append(cat)
 
     provider = get_setting("llm_provider", "ollama")
