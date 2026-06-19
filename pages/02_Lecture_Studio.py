@@ -107,6 +107,118 @@ if full_video.exists():
 else:
     st.info("Video not yet rendered. Use the controls below.")
 
+
+# ─── Lecture Co-Pilot (active-recall play mode) ──────────────────────────────
+def _copilot_make_quiz(lecture_data: dict, scene: dict):
+    """Author one scene-scoped checkpoint MCQ. Returns {question, options, answer} or None."""
+    from llm.providers import cfg_from_settings, simple_complete
+    topic = lecture_data.get("title", "this lecture")
+    terms = ", ".join(lecture_data.get("core_terms", [])[:6])
+    narration = (scene.get("narration") or scene.get("narration_prompt")
+                 or scene.get("visual_prompt") or topic)
+    prompt = (
+        f"Based on this lecture scene, write ONE quick multiple-choice checkpoint "
+        f"question testing active recall. Lecture: {topic}. Key terms: {terms}. "
+        f"Scene: {narration[:600]}. Output ONLY JSON: "
+        '{"question":"...","options":["..","..","..",".."],"answer":"<exact correct option>"}'
+    )
+    try:
+        raw = simple_complete(cfg_from_settings(), prompt) or ""
+    except Exception:
+        return None
+    import re
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(0))
+    except Exception:
+        return None
+    q, opts, ans = obj.get("question"), obj.get("options"), obj.get("answer")
+    if q and isinstance(opts, list) and len(opts) >= 2 and ans in opts:
+        return {"question": q, "options": opts, "answer": ans}
+    return None
+
+
+section_divider("Lecture Co-Pilot")
+help_button("playing-lectures")
+st.caption(
+    "Active-recall mode: step through the lecture scene by scene. Each checkpoint "
+    "question must be answered correctly to advance — turning passive watching into mastery."
+)
+
+_cp_scenes = lec_data.get("video_recipe", {}).get("scene_blocks", [])
+if not _cp_scenes:
+    st.info("This lecture has no scenes yet — render or enrich it first.")
+else:
+    _cp = f"copilot_{lid}"
+    _idx_key = f"{_cp}_idx"
+    st.session_state.setdefault(_idx_key, 0)
+
+    if st.button("Start / Restart Co-Pilot", key=f"{_cp}_start"):
+        st.session_state[_idx_key] = 0
+        for _k in [k for k in list(st.session_state.keys()) if k.startswith(f"{_cp}_quiz_")]:
+            st.session_state.pop(_k, None)
+        st.session_state.pop(f"{_cp}_recorded", None)
+        st.rerun()
+
+    _total = len(_cp_scenes)
+    _i = st.session_state[_idx_key]
+
+    if _i >= _total:
+        st.success("Co-Pilot complete — you actively recalled every scene!")
+        if not st.session_state.get(f"{_cp}_recorded"):
+            try:
+                set_progress(lid, "completed", score=100)
+                add_xp(50, f"Co-Pilot mastery: {lec_row['title']}", "copilot")
+                unlock_achievement("first_lecture")
+                from core.database import record_competency_score, update_quest_progress
+                record_competency_score(course["id"], "understanding", 100, 100,
+                                        assessment_id=f"copilot_{lid}")
+                update_quest_progress("complete_3_lectures")
+                play_sfx("success")
+            except Exception:
+                pass
+            st.session_state[f"{_cp}_recorded"] = True
+            st.balloons()
+    else:
+        _scene = _cp_scenes[_i]
+        st.progress(_i / _total)
+        st.markdown(f"**Scene {_i + 1} of {_total}** — {_scene.get('block_id', '')}")
+        _narr = (_scene.get("narration") or _scene.get("narration_prompt")
+                 or _scene.get("visual_prompt") or "")
+        st.markdown(
+            f"<div style='background:#0e1230;border-left:3px solid #00d4ff;"
+            f"padding:12px 16px;margin:6px 0;color:#b8b8d0;'>{_narr}</div>",
+            unsafe_allow_html=True,
+        )
+
+        _qkey = f"{_cp}_quiz_{_i}"
+        if _qkey not in st.session_state:
+            with st.spinner("Professor is preparing a checkpoint question…"):
+                st.session_state[_qkey] = _copilot_make_quiz(lec_data, _scene)
+        _quiz = st.session_state[_qkey]
+
+        if not _quiz:
+            st.caption("(No checkpoint available for this scene.)")
+            if st.button("Next scene →", key=f"{_cp}_next_{_i}"):
+                st.session_state[_idx_key] = _i + 1
+                st.rerun()
+        else:
+            st.markdown(f"**Checkpoint:** {_quiz['question']}")
+            _choice = st.radio("Your answer", _quiz["options"], index=None, key=f"{_cp}_ans_{_i}")
+            if st.button("Submit answer", key=f"{_cp}_sub_{_i}"):
+                if _choice is None:
+                    st.warning("Pick an answer first.")
+                elif _choice == _quiz["answer"]:
+                    play_sfx("success")
+                    st.success("Correct! Advancing to the next scene.")
+                    st.session_state[_idx_key] = _i + 1
+                    st.rerun()
+                else:
+                    st.error("Not quite — review this scene and try again.")
+
+
 section_divider("Render Controls")
 help_button("rendering-lecture")
 
